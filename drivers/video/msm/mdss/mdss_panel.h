@@ -767,6 +767,9 @@ struct mdss_panel_info {
 
 	/* HDR properties of display panel*/
 	struct mdss_panel_hdr_properties hdr_properties;
+
+	u32 forced_tx_mode_ftr_enabled;
+	u32 forced_tx_mode_state;
 };
 
 struct mdss_panel_timing {
