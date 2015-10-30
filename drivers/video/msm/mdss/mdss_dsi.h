@@ -678,6 +678,7 @@ int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata, int power_state);
 
 int mdss_dsi_pinctrl_set_state(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 								bool active);
+u32 mdss_dsi_panel_forced_tx_mode_get(struct mdss_panel_info *pinfo);
 
 static inline const char *__mdss_dsi_pm_name(enum dsi_pm_type module)
 {
