@@ -673,6 +673,11 @@ endif
 # enable the MAC Address auto-generation feature
 CDEFINES += -DWLAN_AUTOGEN_MACADDR_FEATURE
 
+# Read MACs from boot params instead of NV file
+ifeq ($(CONFIG_MACH_LENOVO),y)
+CDEFINES += -DMOTO_UTAGS_MAC
+endif
+
 ifeq ($(CONFIG_WLAN_FEATURE_11W),y)
 CDEFINES += -DWLAN_FEATURE_11W
 endif
