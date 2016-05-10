@@ -801,6 +801,7 @@ struct mdss_panel_info {
 	struct mdss_panel_hdr_properties hdr_properties;
 
 	struct panel_param *param[PARAM_ID_NUM];
+	bool hbm_restore;
 	u32 forced_tx_mode_ftr_enabled;
 	u32 forced_tx_mode_state;
 };
