@@ -1236,6 +1236,7 @@ static int mdss_panel_parse_param_prop(struct device_node *np,
 	struct panel_param *param;
 	struct dsi_panel_cmds *cmds;
 	char *prop;
+	char link[64];
 
 	pinfo->hbm_restore = false;
 
@@ -1254,8 +1255,15 @@ static int mdss_panel_parse_param_prop(struct device_node *np,
 			prop = param->val_map[j].prop;
 			if (!prop || !of_get_property(np, prop, NULL))
 				continue;
+			if (strlcpy(link, prop, sizeof(link)) >= sizeof(link) ||
+				strlcat(link, "-state", sizeof(link))
+				>= sizeof(link)) {
+				pr_err("%s: too long property name: %s\n",
+					__func__, prop);
+				continue;
+			}
 			rc = mdss_dsi_parse_dcs_cmds(np,
-					&cmds[j], prop, NULL);
+					&cmds[j], prop, link);
 			if (rc) {
 				pr_err("%s: failed to read prop %s\n",
 					__func__, prop);
