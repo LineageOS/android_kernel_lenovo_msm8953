@@ -772,7 +772,9 @@ struct vfe_device {
 	uint32_t is_split;
 	uint32_t dual_vfe_enable;
 	unsigned long page_fault_addr;
+#if !defined(CONFIG_MACH_LENOVO_TB8703)
 	uint32_t vfe_hw_limit;
+#endif
 
 	/* Debug variables */
 	int dump_reg;
