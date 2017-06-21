@@ -9,8 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
-#define pr_fmt(fmt)	"FG: %s: " fmt, __func__
+#define pr_fmt(fmt)	"FG : %s: " fmt, __func__
 
 #include <linux/atomic.h>
 #include <linux/delay.h>
@@ -78,6 +77,14 @@
 #define BCL_MA_TO_ADC(_current, _adc_val) {		\
 	_adc_val = (u8)((_current) * 100 / 976);	\
 }
+
+/*lenovo-sw weiwei added for psy name*/
+#define PSY_NAME "bms"
+#define CHARGER_PSY_NAME "battery"
+#define PSY_TYPE POWER_SUPPLY_TYPE_BMS;
+
+#define FG_HEATBEAT_WORK
+/*lenovo-sw weiwei added for psy name end*/
 
 /* Debug Flag Definitions */
 enum {
@@ -504,6 +511,9 @@ struct fg_chip {
 	struct work_struct	charge_full_work;
 	struct work_struct	gain_comp_work;
 	struct work_struct	bcl_hi_power_work;
+#ifdef FG_HEATBEAT_WORK
+	struct delayed_work	battery_heatbeat_work;
+#endif
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
@@ -542,6 +552,7 @@ struct fg_chip {
 	bool			fg_shutdown;
 	bool			use_soft_jeita_irq;
 	bool			allow_false_negative_isense;
+
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
@@ -2194,8 +2205,38 @@ static int get_prop_capacity(struct fg_chip *chip)
 	if (chip->battery_missing)
 		return MISSING_CAPACITY;
 
-	if (!chip->profile_loaded && !chip->use_otp_profile)
+	if (!chip->profile_loaded && !chip->use_otp_profile) {
+/*lenovo-sw weiweij modified for booting default soc*/
+#if 0
 		return DEFAULT_CAPACITY;
+#else
+		static int shutdonw_soc = -22;
+		int j;
+		u8 reg_soc[4];
+		int64_t temp;
+
+		if (shutdonw_soc>=0) {
+			pr_info("using pre shutdown soc %d\n", shutdonw_soc);
+			return shutdonw_soc;
+		}
+
+		rc = fg_mem_read(chip, reg_soc, fg_data[FG_DATA_BATT_SOC].address,
+						fg_data[FG_DATA_BATT_SOC].len, fg_data[FG_DATA_BATT_SOC].offset, 0);
+		if (rc) {
+			pr_err("Failed to update soc sram data, using default soc\n");
+			return DEFAULT_CAPACITY;
+		}
+		temp = 0;
+		for (j = 0; j < fg_data[FG_DATA_BATT_SOC].len; j++)
+			temp |= reg_soc[j] << (8 * j);
+
+		shutdonw_soc = div64_s64((temp * 10000), FULL_PERCENT_3B) / 100;
+		pr_info("bat profile not ready, using shutdown soc %d\n", shutdonw_soc);
+
+		return shutdonw_soc;
+#endif
+/*lenovo-sw weiweij modified for booting default soc end*/
+	}
 
 	if (chip->charge_full)
 		return FULL_CAPACITY;
@@ -3250,6 +3291,29 @@ static void battery_age_work(struct work_struct *work)
 	estimate_battery_age(chip, &chip->actual_cap_uah);
 }
 
+#ifdef FG_HEATBEAT_WORK
+static void battery_heatbeat_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work, struct fg_chip, battery_heatbeat_work.work);
+	int soc, vol, cur, batt_temp;
+	static int pre_soc = -1, pre_batt_temp = -1;
+
+	soc = get_prop_capacity(chip);
+	vol = get_sram_prop_now(chip, FG_DATA_VOLTAGE);
+	cur = get_sram_prop_now(chip, FG_DATA_CURRENT);
+	batt_temp = get_sram_prop_now(chip, FG_DATA_BATT_TEMP);
+
+	pr_info("soc %d pre_soc %d vol %d cur %d batt_temp %d\n", soc, pre_soc, vol, cur, batt_temp);
+	if ((soc!=pre_soc) || (batt_temp != pre_batt_temp)) {
+		pre_soc = soc;
+		pre_batt_temp = batt_temp;
+		power_supply_changed(&chip->bms_psy);
+	}
+
+	schedule_delayed_work(&chip->battery_heatbeat_work, (HZ * 5));
+}
+#endif
+
 static int correction_times[] = {
 	1470,
 	2940,
@@ -3841,7 +3905,6 @@ static bool is_usb_present(struct fg_chip *chip)
 	union power_supply_propval prop = {0,};
 	if (!chip->usb_psy)
 		chip->usb_psy = power_supply_get_by_name("usb");
-
 	if (chip->usb_psy)
 		chip->usb_psy->get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_PRESENT, &prop);
@@ -6201,7 +6264,9 @@ fail:
 #define PROFILE_COMPARE_LEN		32
 #define THERMAL_COEFF_ADDR		0x444
 #define THERMAL_COEFF_OFFSET		0x2
-#define BATTERY_PSY_WAIT_MS		2000
+/*lenovo-sw weiweij modified for battery profile re-check schedule time*/
+#define BATTERY_PSY_WAIT_MS		1000
+/*lenovo-sw weiweij modified for battery profile re-check schedule time end*/
 static int fg_batt_profile_init(struct fg_chip *chip)
 {
 	int rc = 0, ret;
@@ -6250,6 +6315,8 @@ wait:
 	if (fg_debug_mask & FG_STATUS)
 		pr_info("battery id = %d\n",
 				get_sram_prop_now(chip, FG_DATA_BATT_ID));
+/*lenovo-sw weiweij modified for psy name*/
+#if 0
 	profile_node = of_batterydata_get_best_profile(batt_node, "bms",
 							fg_batt_type);
 	if (IS_ERR_OR_NULL(profile_node)) {
@@ -6261,6 +6328,25 @@ wait:
 			goto no_profile;
 		}
 	}
+#else
+	pr_info("battery id = %d\n",
+			get_sram_prop_now(chip, FG_DATA_BATT_ID));
+
+	pr_err("psy name %s\n", PSY_NAME);
+	profile_node = of_batterydata_get_best_profile(batt_node, PSY_NAME,
+							fg_batt_type);
+
+	if (IS_ERR_OR_NULL(profile_node)) {
+		rc = PTR_ERR(profile_node);
+		if (rc == -EPROBE_DEFER) {
+			goto reschedule;
+		} else {
+			pr_err("couldn't find profile handle rc=%d\n", rc);
+			goto no_profile;
+		}
+	}
+#endif
+/*lenovo-sw weiweij modified for psy name end*/
 
 	/* read rslow compensation values if they're available */
 	rc = of_property_read_u32(profile_node, "qcom,chg-rs-to-rslow",
@@ -7235,7 +7321,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 					chip->mem_irq[FG_MEM_AVAIL].irq, rc);
 				return rc;
 			}
-			break;
+		break;
 		case FG_BATT:
 			chip->batt_irq[JEITA_SOFT_COLD].irq =
 				spmi_get_irq_byname(chip->spmi, spmi_resource,
@@ -8535,6 +8621,11 @@ static void delayed_init_work(struct work_struct *work)
 	chip->otg_present = is_otg_present(chip);
 	chip->init_done = true;
 	pr_debug("FG: HW_init success\n");
+
+#ifdef FG_HEATBEAT_WORK
+	schedule_delayed_work(&chip->battery_heatbeat_work, 0);
+#endif
+
 	return;
 done:
 	fg_cleanup(chip);
@@ -8627,6 +8718,10 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->slope_limiter_work, slope_limiter_work);
 	INIT_WORK(&chip->dischg_gain_work, discharge_gain_work);
 	INIT_WORK(&chip->cc_soc_store_work, cc_soc_store_work);
+#ifdef FG_HEATBEAT_WORK
+	INIT_DELAYED_WORK(&chip->battery_heatbeat_work, battery_heatbeat_work);
+#endif
+
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
 	alarm_init(&chip->hard_jeita_alarm, ALARM_BOOTTIME,
@@ -8737,8 +8832,15 @@ static int fg_probe(struct spmi_device *spmi)
 
 	chip->batt_type = default_batt_type;
 
+/*lenovo-sw weiweij modified for psy name*/
+#if 0
 	chip->bms_psy.name = "bms";
 	chip->bms_psy.type = POWER_SUPPLY_TYPE_BMS;
+#else
+	chip->bms_psy.name = PSY_NAME;
+	chip->bms_psy.type = PSY_TYPE;//POWER_SUPPLY_TYPE_BATTERY;
+#endif
+/*lenovo-sw weiweij modified for psy name end*/
 	chip->bms_psy.properties = fg_power_props;
 	chip->bms_psy.num_properties = ARRAY_SIZE(fg_power_props);
 	chip->bms_psy.get_property = fg_power_get_property;
@@ -8758,7 +8860,13 @@ static int fg_probe(struct spmi_device *spmi)
 	 * Just initialize the batt_psy_name here. Power supply
 	 * will be obtained later.
 	 */
+/*lenovo-sw weiweij modified for charger psy name*/
+#if 0
 	chip->batt_psy_name = "battery";
+#else
+	chip->batt_psy_name = CHARGER_PSY_NAME;
+#endif
+/*lenovo-sw weiweij modified for charger psy name end*/
 
 	if (chip->mem_base) {
 		rc = fg_dfs_create(chip);
@@ -8985,7 +9093,13 @@ static int fg_sense_type_set(const char *val, const struct kernel_param *kp)
 	if (fg_debug_mask & FG_STATUS)
 		pr_info("fg_sense_type set to %d\n", fg_sense_type);
 
+/*lenovo-sw weiweij modified for psy name*/
+#if 0
 	bms_psy = power_supply_get_by_name("bms");
+#else
+	bms_psy = power_supply_get_by_name(PSY_NAME);
+#endif
+/*lenovo-sw weiweij modified for psy name end*/
 	if (!bms_psy) {
 		pr_err("bms psy not found\n");
 		return 0;
@@ -9008,7 +9122,14 @@ static int fg_restart_set(const char *val, const struct kernel_param *kp)
 	struct power_supply *bms_psy;
 	struct fg_chip *chip;
 
+/*lenovo-sw weiweij modified for psy name*/
+#if 0
 	bms_psy = power_supply_get_by_name("bms");
+#else
+	bms_psy = power_supply_get_by_name(PSY_NAME);
+#endif
+/*lenovo-sw weiweij modified for psy name end*/
+
 	if (!bms_psy) {
 		pr_err("bms psy not found\n");
 		return 0;

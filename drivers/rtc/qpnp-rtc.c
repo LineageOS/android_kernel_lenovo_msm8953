@@ -338,10 +338,13 @@ qpnp_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 
 	rtc_dd->alarm_ctrl_reg1 = ctrl_reg;
 
-	dev_dbg(dev, "Alarm Set for h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
+//lenovo sw yexh1, add for rtc setting log
+	printk("qpnp_rtc_set_alarm Alarm Set for h:r:s=%d:%d:%d, d/m/y=%d/%d/%d,ctrl_reg=%x \n",
 			alarm->time.tm_hour, alarm->time.tm_min,
 			alarm->time.tm_sec, alarm->time.tm_mday,
-			alarm->time.tm_mon, alarm->time.tm_year);
+			alarm->time.tm_mon, alarm->time.tm_year,ctrl_reg);
+//lenovo sw yexh1, add for rtc setting log
+
 rtc_rw_fail:
 	spin_unlock_irqrestore(&rtc_dd->alarm_ctrl_lock, irq_flags);
 	return rc;
@@ -372,10 +375,12 @@ qpnp_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		return rc;
 	}
 
-	dev_dbg(dev, "Alarm set for - h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
+//lenovo sw yexh1, add for rtc setting log
+	printk("qpnp_rtc_read_alarm Alarm set for - h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
 		alarm->time.tm_hour, alarm->time.tm_min,
 				alarm->time.tm_sec, alarm->time.tm_mday,
 				alarm->time.tm_mon, alarm->time.tm_year);
+//lenovo sw yexh1, add for rtc setting log
 
 	return 0;
 }

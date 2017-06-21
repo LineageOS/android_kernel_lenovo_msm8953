@@ -52,8 +52,8 @@ config ARM64
 	select HAVE_C_RECORDMCOUNT
 	select HAVE_CC_STACKPROTECTOR
 	select HAVE_CMPXCHG_DOUBLE
-	select HAVE_DEBUG_BUGVERBOSE
-	select HAVE_DEBUG_KMEMLEAK
+#	select HAVE_DEBUG_BUGVERBOSE
+#	select HAVE_DEBUG_KMEMLEAK
 	select HAVE_DMA_API_DEBUG
 	select HAVE_DMA_ATTRS
 	select HAVE_DMA_CONTIGUOUS
@@ -775,6 +775,13 @@ config ARCH_HAS_CACHE_LINE_SIZE
 	def_bool y
 
 source "mm/Kconfig"
+#lenovo sw, yexh1, add lastkmsg feature
+config LENOVO_DEBUG_RKM
+	bool "Configure Replay Kernel Message feature for debug"
+	default y
+	help
+	  RKM can replay last kernel dmesglog info after reboot.
+#lenovo sw, yexh1, end
 
 config SECCOMP
 	bool "Enable seccomp to safely compute untrusted bytecode"

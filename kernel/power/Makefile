@@ -16,3 +16,6 @@ obj-$(CONFIG_SUSPEND_TIME)	+= suspend_time.o
 obj-$(CONFIG_MAGIC_SYSRQ)	+= poweroff.o
 
 obj-$(CONFIG_SUSPEND)	+= wakeup_reason.o
+# Add user defined sysfs lenovo.sw chenyb1 20150310 add for pm log begin
+obj-$(CONFIG_LENOVO_PM_LOG) += user_sysfs_private.o
+#lenovo.sw chenyb1 20150310 add for pm log end

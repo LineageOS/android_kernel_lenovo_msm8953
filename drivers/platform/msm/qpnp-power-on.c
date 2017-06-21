@@ -95,6 +95,9 @@
 #define QPNP_PON_XVDD_RB_SPARE(pon)		((pon)->base + 0x8E)
 #define QPNP_PON_SOFT_RB_SPARE(pon)		((pon)->base + 0x8F)
 #define QPNP_PON_SEC_ACCESS(pon)		((pon)->base + 0xD0)
+/* spared registers for storing extra reset information */
+#define QPNP_PON_EXTRA_RESET_INFO_1(base)	(base + 0x8D)
+#define QPNP_PON_EXTRA_RESET_INFO_2(base)	(base + 0x8E)
 
 #define QPNP_PON_SEC_UNLOCK			0xA5
 
@@ -366,6 +369,41 @@ int qpnp_pon_set_restart_reason(enum pon_restart_reason reason)
 	return rc;
 }
 EXPORT_SYMBOL(qpnp_pon_set_restart_reason);
+
+int qpnp_pon_store_extra_reset_info(u16 mask, u16 val)
+{
+	int rc = 0;
+	u16 extra_reset_info_reg;
+	struct qpnp_pon *pon = sys_reset_dev;
+
+	if (!pon)
+		return -ENODEV;
+
+	if (mask & 0xFF) {
+		extra_reset_info_reg = QPNP_PON_EXTRA_RESET_INFO_1(pon->base);
+		rc = qpnp_pon_masked_write(pon, extra_reset_info_reg,
+		    mask & 0xFF, val & 0xFF);
+		if (rc) {
+			pr_err("Failed to store extra reset info to 0x%x\n",
+			    extra_reset_info_reg);
+			return rc;
+		}
+	}
+
+	if (mask & 0xFF00) {
+		extra_reset_info_reg = QPNP_PON_EXTRA_RESET_INFO_2(pon->base);
+		rc = qpnp_pon_masked_write(pon, extra_reset_info_reg,
+		    (mask & 0xFF00) >> 8, (val & 0xFF00) >> 8);
+		if (rc) {
+			pr_err("Failed to store extra reset info to 0x%x\n",
+			    extra_reset_info_reg);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_store_extra_reset_info);
 
 /*
  * qpnp_pon_check_hard_reset_stored - Checks if the PMIC need to
@@ -791,7 +829,7 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 		return -EINVAL;
 	}
 
-	pr_debug("PMIC input: code=%d, sts=0x%hhx\n",
+	pr_err("PMIC input: code=%d, sts=0x%hhx\n",
 					cfg->key_code, pon_rt_sts);
 	key_status = pon_rt_sts & pon_rt_bit;
 
@@ -1027,6 +1065,27 @@ qpnp_config_pull(struct qpnp_pon *pon, struct qpnp_pon_config *cfg)
 }
 
 static int
+qpnp_judge_factory(struct qpnp_pon *pon)
+{
+	struct device_node *np;
+	bool bare_board = false;
+	bool factory_cable = false;
+	bool ret = false;
+
+	np = of_find_node_by_path("/chosen");
+	bare_board = of_property_read_bool(np, "mmi,bare_board");
+	factory_cable = of_property_read_bool(np, "mmi,factory-cable");
+	dev_err(&pon->spmi->dev,
+			"ahe (%d,%d)\n",bare_board,factory_cable);
+	if(bare_board  || factory_cable){
+		ret = true;
+		dev_err(&pon->spmi->dev,
+			"factory-cable and bare_board,so config shut down not reboot\n");
+	}
+	return ret;
+}
+
+static int
 qpnp_config_reset(struct qpnp_pon *pon, struct qpnp_pon_config *cfg)
 {
 	int rc;
@@ -1083,8 +1142,12 @@ qpnp_config_reset(struct qpnp_pon *pon, struct qpnp_pon_config *cfg)
 		dev_err(&pon->spmi->dev, "Unable to configure S2 timer\n");
 		return rc;
 	}
-
-	rc = qpnp_pon_masked_write(pon, cfg->s2_cntl_addr,
+	/*while factory config shut down*/
+	if(qpnp_judge_factory(pon))
+		rc = qpnp_pon_masked_write(pon, cfg->s2_cntl_addr,
+				QPNP_PON_S2_CNTL_TYPE_MASK, 0x4);
+	else
+		rc = qpnp_pon_masked_write(pon, cfg->s2_cntl_addr,
 				QPNP_PON_S2_CNTL_TYPE_MASK, (u8)cfg->s2_type);
 	if (rc) {
 		dev_err(&pon->spmi->dev, "Unable to configure S2 reset type\n");

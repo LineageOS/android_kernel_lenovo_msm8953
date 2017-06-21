@@ -3194,6 +3194,10 @@ static int msm_dai_q6_mi2s_hw_free(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+/* lenovo-sw zhangrc2, 2016-05-31,add for quat mi2s control */
+extern atomic_t quin_mi2s_clk_ref;
+/* lenovo-sw zhangrc2, 2016-05-31,add for quat mi2s control */
+
 static void msm_dai_q6_mi2s_shutdown(struct snd_pcm_substream *substream,
 				     struct snd_soc_dai *dai)
 {
@@ -3212,8 +3216,26 @@ static void msm_dai_q6_mi2s_shutdown(struct snd_pcm_substream *substream,
 				__func__, port_id);
 	}
 
+
+/* lenovo-sw zhangrc2, 2016-05-31,add for quat mi2s control */
+	if ((atomic_read(&quin_mi2s_clk_ref) >= 1) && (port_id == AFE_PORT_ID_QUINARY_MI2S_RX)) {
+		printk(KERN_DEBUG "[%s]quat_mi2s_clk_ref is using...port_id=%#x\n", __func__, port_id);
+		if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
+			clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
+		}
+
+		if (test_bit(STATUS_PORT_STARTED, dai_data->hwfree_status)) {
+	       clear_bit(STATUS_PORT_STARTED, dai_data->hwfree_status);
+		}
+		return;
+	}
+/* lenovo-sw zhangrc2, 2016-05-31,add for quat mi2s control */
+	
+
 	dev_dbg(dai->dev, "%s: closing afe port id = 0x%x\n",
 			__func__, port_id);
+
+	
 
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		rc = afe_close(port_id);

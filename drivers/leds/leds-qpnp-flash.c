@@ -998,8 +998,8 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 			}
 			led->gpio_enabled = false;
 		}
-
-		if (led->battery_psy) {
+		/*zhangjiano modify for flash dead circulation  20160325*/
+		/*if (led->battery_psy) {
 			psy_prop.intval = false;
 			rc = led->battery_psy->set_property(led->battery_psy,
 						POWER_SUPPLY_PROP_FLASH_ACTIVE,
@@ -1009,7 +1009,7 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 				"Failed to setup OTG pulse skip enable\n");
 				return -EINVAL;
 			}
-		}
+		}*/
 	}
 
 	if (flash_node->trigger & FLASH_LED0_TRIGGER) {
@@ -1407,8 +1407,8 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			max_curr_avail_ma += flash_node->max_current;
 		if (flash_node->trigger & FLASH_LED1_TRIGGER)
 			max_curr_avail_ma += flash_node->max_current;
-
-		psy_prop.intval = true;
+		/*zhangjiano modify for flash dead circulation 20160325*/
+		/*psy_prop.intval = true;
 		if (led->battery_psy) {
 			rc = led->battery_psy->set_property(led->battery_psy,
 						POWER_SUPPLY_PROP_FLASH_ACTIVE,
@@ -1422,7 +1422,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			dev_err(&led->spmi_dev->dev,
 					"led->battery_psy is NULL\n");
 			goto exit_flash_led_work;
-		}
+		}*/
 
 		if (led->pdata->power_detect_en ||
 					led->pdata->die_current_derate_en) {

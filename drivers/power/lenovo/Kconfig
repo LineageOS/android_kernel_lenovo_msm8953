@@ -1,0 +1,37 @@
+config CHARGER_BQ2589X
+	tristate "BQ2589x charger driver"
+	depends on I2C
+	help
+	Say Y here to enable support for batteries with BQ27x00 (I2C/HDQ) chips.
+
+config CHARGER_BQ2589X_DUAL
+	tristate "BQ2589x charger driver"
+	depends on I2C
+	help
+	Say Y here to enable support for batteries with BQ27x00 (I2C/HDQ) chips.
+
+config SMB1351_USB_CHARGER
+	tristate "smb1351 usb charger driver"
+	depends on I2C
+	help
+	Say Y here to enable support for batteries with BQ27x00 (I2C/HDQ) chips.
+
+config LENOVO_FAST_CHARGER
+	tristate "lenovo fast charger driver"
+	help
+	Say Y here to enable support for lenovo fast charger.
+
+config CHARGER_DUAL
+	tristate "lenovo dual charger driver"
+	help
+	Say Y here to enable support for lenovo fast charger.
+
+config OTG_SUPPORT
+	tristate "lenovo otg support"
+	help
+	Say Y here to enable support for lenovo fast charger.
+
+config CHARGING_APP_CONTROL
+	tristate "lenovo charging app control support"
+	help
+	Say Y here to enable support for lenovo fast charger.

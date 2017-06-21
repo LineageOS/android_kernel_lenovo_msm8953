@@ -73,6 +73,7 @@
 #define QPNP_HAP_VMAX_SHIFT		1
 #define QPNP_HAP_VMAX_MIN_MV		116
 #define QPNP_HAP_VMAX_MAX_MV		3596
+#define QPNP_HAP_VMAX_LOW_DEFAULT	2800
 #define QPNP_HAP_ILIM_MASK		0xFE
 #define QPNP_HAP_ILIM_MIN_MV		400
 #define QPNP_HAP_ILIM_MAX_MV		800
@@ -330,6 +331,7 @@ struct qpnp_hap {
 	u32 timeout_ms;
 	u32 time_required_to_generate_back_emf_us;
 	u32 vmax_mv;
+	u32 vmax_low_mv;
 	u32 ilim_ma;
 	u32 sc_deb_cycles;
 	u32 int_pwm_freq_khz;
@@ -343,6 +345,7 @@ struct qpnp_hap {
 	u8 act_type;
 	u8 wave_shape;
 	u8 wave_samp[QPNP_HAP_WAV_SAMP_LEN];
+	u8 wave_samp_low[QPNP_HAP_WAV_SAMP_LEN];
 	u8 shadow_wave_samp[QPNP_HAP_WAV_SAMP_LEN];
 	u8 brake_pat[QPNP_HAP_BRAKE_PAT_LEN];
 	u8 reg_en_ctl;
@@ -362,6 +365,8 @@ struct qpnp_hap {
 	bool correct_lra_drive_freq;
 	bool misc_trim_error_rc19p2_clk_reg_present;
 	bool perform_lra_auto_resonance_search;
+	uint8_t low_vmax;
+	bool context_haptics;
 };
 
 static struct qpnp_hap *ghap;
@@ -745,6 +750,45 @@ static int qpnp_hap_vmax_config(struct qpnp_hap *hap)
 	return 0;
 }
 
+/* add wave_samp_low condition cause of context haptic*/
+static int qpnp_hap_wave_sample_config(struct qpnp_hap *hap,int  level)
+{
+	u8 reg = 0;
+	int i  = 0;
+	int rc;
+	u8 wave_samp_temp[QPNP_HAP_WAV_SAMP_LEN];
+	
+	if(level==0)
+		memcpy(wave_samp_temp, hap->wave_samp_low, QPNP_HAP_WAV_SAMP_LEN);
+	else if (level == 2)
+		memcpy(wave_samp_temp, hap->wave_samp, QPNP_HAP_WAV_SAMP_LEN);
+
+	/* Configure WAVE_SAMPLE1 to WAVE_SAMPLE8 register */
+	for (i = 0, reg = 0; i < QPNP_HAP_WAV_SAMP_LEN; i++) {
+		reg = wave_samp_temp[i];
+		rc = qpnp_hap_write_reg(hap, &reg,
+			QPNP_HAP_WAV_S_REG_BASE(hap->base) + i);
+		if (rc)
+			return rc;
+	}
+
+	return 0;
+}
+
+static void qpnp_hap_context(struct qpnp_hap *hap, int value)
+{
+	if ( value >= 35) {
+		if (!hap->low_vmax) {
+			pr_info("%s: default -> wave sample low \n", __func__);
+			qpnp_hap_wave_sample_config(hap,0);
+			hap->low_vmax = 1;
+		}
+	} else if (hap->low_vmax) {
+		pr_info("%s: wave sample low to default\n", __func__);
+		qpnp_hap_wave_sample_config(hap,2);
+		hap->low_vmax = 0;
+	}
+}
 /* configuration api for short circuit debounce */
 static int qpnp_hap_sc_deb_config(struct qpnp_hap *hap)
 {
@@ -771,6 +815,25 @@ static int qpnp_hap_sc_deb_config(struct qpnp_hap *hap)
 	return 0;
 }
 
+/* qpnp_is_factory */
+static bool qpnp_is_factory(struct qpnp_hap *hap)
+{
+	struct device_node *np;
+	bool factory_cable = false;
+	bool ret = false;
+
+	np = of_find_node_by_path("/chosen");
+	factory_cable = of_property_read_bool(np, "mmi,factory-cable");
+	dev_err(&hap->spmi->dev,
+			"qpnp_is_factory (%d)\n",factory_cable);
+	if(factory_cable){
+		ret = true;
+		dev_err(&hap->spmi->dev,
+			"factory-cable ,cancel context haptic!!\n");
+	}
+	return ret;
+}
+
 /* DT parsing api for buffer mode */
 static int qpnp_hap_parse_buffer_dt(struct qpnp_hap *hap)
 {
@@ -778,6 +841,7 @@ static int qpnp_hap_parse_buffer_dt(struct qpnp_hap *hap)
 	struct property *prop;
 	u32 temp;
 	int rc, i;
+	bool is_factory = false ;
 
 	hap->wave_rep_cnt = QPNP_HAP_WAV_REP_MIN;
 	rc = of_property_read_u32(spmi->dev.of_node,
@@ -807,6 +871,25 @@ static int qpnp_hap_parse_buffer_dt(struct qpnp_hap *hap)
 			hap->wave_samp[i] = QPNP_HAP_WAV_SAMP_MAX;
 	} else {
 		memcpy(hap->wave_samp, prop->value, QPNP_HAP_WAV_SAMP_LEN);
+	}
+
+	is_factory = qpnp_is_factory(hap);
+	if (is_factory == false) {
+		hap->context_haptics = of_property_read_bool(spmi->dev.of_node,
+						"qcom,context-haptics");
+
+		if (hap->context_haptics) {
+			prop = of_find_property(spmi->dev.of_node,
+			"qcom,wave-samples_low", &temp);
+			if (!prop || temp != QPNP_HAP_WAV_SAMP_LEN) {
+				dev_err(&spmi->dev, "Invalid wave samples, use default");
+					for (i = 0; i < QPNP_HAP_WAV_SAMP_LEN; i++)
+						hap->wave_samp_low[i] = QPNP_HAP_WAV_SAMP_MAX;
+			} else {
+				memcpy(hap->wave_samp_low, prop->value, QPNP_HAP_WAV_SAMP_LEN);
+			}
+			hap->low_vmax = 0;
+		}
 	}
 
 	hap->use_play_irq = of_property_read_bool(spmi->dev.of_node,
@@ -1665,10 +1748,13 @@ static void qpnp_hap_td_enable(struct timed_output_dev *dev, int value)
 		value = (value > hap->timeout_ms ?
 				 hap->timeout_ms : value);
 		hap->state = 1;
+		if (hap->context_haptics)
+			qpnp_hap_context(hap, value);
 		hrtimer_start(&hap->hap_timer,
 			      ktime_set(value / 1000, (value % 1000) * 1000000),
 			      HRTIMER_MODE_REL);
 	}
+	pr_debug("%s: duration is %d\n", __func__, value);
 	mutex_unlock(&hap->lock);
 	schedule_work(&hap->work);
 }

@@ -7786,6 +7786,59 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 	return rc;
 }
 
+/*lenovo-sw weiweij added for disable pmi charger*/
+static int smbchg_request_irqs_simple(struct smbchg_chip *chip)
+{
+	int rc = 0;
+	struct resource *resource;
+	struct spmi_resource *spmi_resource;
+	u8 subtype;
+	struct spmi_device *spmi = chip->spmi;
+	unsigned long flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
+							| IRQF_ONESHOT;
+
+	pr_err("%s\n", __func__);
+	spmi_for_each_container_dev(spmi_resource, chip->spmi) {
+		if (!spmi_resource) {
+				dev_err(chip->dev, "spmi resource absent\n");
+			return rc;
+		}
+
+		resource = spmi_get_resource(spmi, spmi_resource,
+						IORESOURCE_MEM, 0);
+		if (!(resource && resource->start)) {
+			dev_err(chip->dev, "node %s IO resource absent!\n",
+				spmi->dev.of_node->full_name);
+			return rc;
+		}
+
+		rc = smbchg_read(chip, &subtype,
+				resource->start + SUBTYPE_REG, 1);
+		if (rc) {
+			dev_err(chip->dev, "Peripheral subtype read failed rc=%d\n",
+					rc);
+			return rc;
+		}
+
+		switch (subtype) {
+		case SMBCHG_USB_CHGPTH_SUBTYPE:
+		case SMBCHG_LITE_USB_CHGPTH_SUBTYPE:
+			REQUEST_IRQ(chip, spmi_resource, chip->src_detect_irq,
+				"usbin-src-det",
+				src_detect_handler, flags, rc);
+			enable_irq_wake(chip->src_detect_irq);
+			if (chip->parallel.avail && chip->usb_present) {
+				rc = enable_irq_wake(chip->aicl_done_irq);
+				chip->enable_aicl_wake = true;
+			}
+			break;
+		}
+	}
+
+	return rc;
+}
+/*lenovo-sw weiweij added for disable pmi charger end*/
+
 #define REQUIRE_BASE(chip, base, rc)					\
 do {									\
 	if (!rc && !chip->base) {					\
@@ -8048,6 +8101,8 @@ static void rerun_hvdcp_det_if_necessary(struct smbchg_chip *chip)
 	}
 }
 
+static int use_externel_charger = -1;
+
 static int smbchg_probe(struct spmi_device *spmi)
 {
 	int rc;
@@ -8055,6 +8110,13 @@ static int smbchg_probe(struct spmi_device *spmi)
 	struct power_supply *usb_psy, *typec_psy = NULL;
 	struct qpnp_vadc_chip *vadc_dev = NULL, *vchg_vadc_dev = NULL;
 	const char *typec_psy_name;
+
+	if (of_find_property(spmi->dev.of_node, "qcom,use-external-charger", NULL)) {
+		use_externel_charger = 1;
+		pr_info("external charger used!\n");
+		return 0;
+	}else
+		use_externel_charger = 0;
 
 	usb_psy = power_supply_get_by_name("usb");
 	if (!usb_psy) {
@@ -8225,6 +8287,49 @@ static int smbchg_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
+	/*lenovo-sw weiweij added for disable pmi charger*/
+	if(of_find_property(spmi->dev.of_node, "qcom,pmi-charger-disable", NULL)) {
+		unsigned char val;
+		pr_err("%s find pmi-charer-disable, return\n", __func__);
+#if 0
+		//wakeup_source_trash(&chip->smbchg_wake_source);
+		rc = smbchg_masked_write(chip, chip->chgr_base + CHGR_CFG2,
+				CHARGER_INHIBIT_BIT, CHARGER_INHIBIT_BIT);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't set chgr_cfg2 rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = smbchg_masked_write(chip, chip->usb_chgpth_base+ CMD_IL,
+				USBIN_SUSPEND_BIT, USBIN_SUSPEND_BIT);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't set CMD_IL rc=%d\n", rc);
+			return rc;
+		}
+#endif
+		rc = smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
+				EN_BAT_CHG_BIT, 0);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't set CMD_CHG_REG rc=%d\n", rc);
+			return rc;
+		}
+
+		smbchg_read(chip, &val, chip->chgr_base + CHGR_CFG2, 1);
+		dev_err(chip->dev, "read chgr_cfg2 0x%x\n", val);
+		smbchg_read(chip, &val, chip->usb_chgpth_base + CMD_IL, 1);
+		dev_err(chip->dev, "read CMD_IL 0x%x\n", val);
+		smbchg_read(chip, &val, chip->bat_if_base + CMD_CHG_REG, 1);
+		dev_err(chip->dev, "read chgr_cfg 0x%x\n", val);
+		smbchg_read(chip, &val, chip->chgr_base + RT_STS, 1);
+		dev_err(chip->dev, "read RT_STS 0x%x\n", val);
+		smbchg_read(chip, &val, chip->chgr_base + CHGR_STS, 1);
+		dev_err(chip->dev, "read CHGR_STS 0x%x\n", val);
+
+		smbchg_request_irqs_simple(chip);
+		return 0;//-EINVAL;
+	}
+	/*lenovo-sw weiweij added for disable pmi charger end*/
+
 	rc = smbchg_regulator_init(chip);
 	if (rc) {
 		dev_err(&spmi->dev,
@@ -8357,6 +8462,11 @@ static void smbchg_shutdown(struct spmi_device *spmi)
 {
 	struct smbchg_chip *chip = dev_get_drvdata(&spmi->dev);
 	int i, rc;
+
+	if(use_externel_charger) {
+		pr_info("%s using externel charger return\n", __func__);
+		return;
+	}
 
 	if (!(chip->wa_flags & SMBCHG_RESTART_WA))
 		return;

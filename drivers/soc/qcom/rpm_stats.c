@@ -56,7 +56,13 @@ struct msm_rpmstats_private_data {
 	u32 num_records;
 	u32 read_idx;
 	u32 len;
+/* lenovo.sw begin chenyb1 add for adding master vote info in rpm_state */
+#ifdef CONFIG_LENOVO_PM_LOG
+	char buf[480];
+#else
 	char buf[320];
+#endif
+/* lenovo.sw end chenyb1 add for adding master vote info in rpm_state */
 	struct msm_rpmstats_platform_data *platform_data;
 };
 
@@ -107,6 +113,20 @@ static inline int msm_rpmstats_append_data_to_buf(char *buf,
 	time_since_last_mode = get_time_in_sec(time_since_last_mode);
 	actual_last_sleep = get_time_in_msec(data->accumulated);
 
+/* lenovo.sw begin chenyb1 add for adding master vote info in rpm_state */
+#ifdef CONFIG_LENOVO_PM_LOG
+	return  snprintf(buf , buflength,
+		"RPM Mode:%s\n\t count:%d\ntime in last mode(msec):%llu\n"
+		"time since last mode(sec):%llu\nactual last sleep(msec):%llu\n"
+		"client votes: %#010x\n"
+		"master[0,1]: 0x%08x\n"
+		"master[2,3]: 0x%08x\n"
+		"master[4,5]: 0x%08x\n\n",
+		stat_type, data->count, time_in_last_mode,
+		time_since_last_mode, actual_last_sleep,
+		data->client_votes,
+		data->reserved[0], data->reserved[1], data->reserved[2]);
+#else
 	return  snprintf(buf , buflength,
 		"RPM Mode:%s\n\t count:%d\ntime in last mode(msec):%llu\n"
 		"time since last mode(sec):%llu\nactual last sleep(msec):%llu\n"
@@ -114,6 +134,8 @@ static inline int msm_rpmstats_append_data_to_buf(char *buf,
 		stat_type, data->count, time_in_last_mode,
 		time_since_last_mode, actual_last_sleep,
 		data->client_votes);
+#endif
+/* lenovo.sw begin chenyb1 add for adding master vote info in rpm_state */
 }
 
 static inline u32 msm_rpmstats_read_long_register_v2(void __iomem *regbase,
@@ -162,6 +184,19 @@ static inline int msm_rpmstats_copy_stats_v2(
 		data.client_votes = msm_rpmstats_read_long_register_v2(reg,
 				i, offsetof(struct msm_rpm_stats_data_v2,
 					client_votes));
+/* lenovo.sw begin chenyb1 add for adding master vote info in rpm_state */
+#ifdef CONFIG_LENOVO_PM_LOG
+		data.reserved[0] = msm_rpmstats_read_long_register_v2(reg,
+				i, offsetof(struct msm_rpm_stats_data_v2,
+					reserved));
+		data.reserved[1] = msm_rpmstats_read_long_register_v2(reg,
+				i, offsetof(struct msm_rpm_stats_data_v2,
+					reserved) + 4);
+		data.reserved[2] = msm_rpmstats_read_long_register_v2(reg,
+				i, offsetof(struct msm_rpm_stats_data_v2,
+					reserved) + 8);
+#endif
+/* lenovo.sw end chenyb1 add for adding master vote info in rpm_state */
 		length += msm_rpmstats_append_data_to_buf(prvdata->buf + length,
 				&data, sizeof(prvdata->buf) - length);
 		prvdata->read_idx++;
@@ -310,6 +345,46 @@ static int msm_rpmstats_file_close(struct inode *inode, struct file *file)
 
 	return 0;
 }
+
+/* lenovo.sw begin chenyb1 add for adding master vote info in rpm_state */
+#ifdef CONFIG_LENOVO_PM_LOG
+struct msm_rpmstats_platform_data *rpmstats = NULL;
+
+void msm_rpmstats_get_reverved(u32 reserved[][4])
+{
+	void __iomem *reg_base;
+	int i;
+
+	if(rpmstats == NULL) {
+		pr_err("%s: rpm stats has not been initialized\n", __func__);
+		return;
+	}
+
+	reg_base = ioremap_nocache(rpmstats->phys_addr_base,
+					rpmstats->phys_size);
+	if (reg_base == NULL) {
+		pr_err("%s: ERROR could not ioremap start=%p, len=%u\n",
+			__func__, (void *)rpmstats->phys_addr_base,
+			rpmstats->phys_size);
+		return;
+	}
+
+	for(i = 0; i < 2; i++) {
+		reserved[i][0] = msm_rpmstats_read_long_register_v2(reg_base,
+				i, offsetof(struct msm_rpm_stats_data_v2,
+					reserved));
+		reserved[i][1] = msm_rpmstats_read_long_register_v2(reg_base,
+				i, offsetof(struct msm_rpm_stats_data_v2,
+					reserved) + 4);
+		reserved[i][2] = msm_rpmstats_read_long_register_v2(reg_base,
+				i, offsetof(struct msm_rpm_stats_data_v2,
+					reserved) + 8);
+	}
+
+	iounmap(reg_base);
+}
+#endif 
+/* lenovo.sw end chenyb1 add for adding master vote info in rpm_state */
 
 static const struct file_operations msm_rpmstats_fops = {
 	.owner	  = THIS_MODULE,
@@ -528,6 +603,11 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 	msm_rpmstats_create_sysfs(pdata);
 
 	platform_set_drvdata(pdev, dent);
+/* lenovo.sw begin chenyb1 add for adding master vote info in rpm_state */
+#ifdef CONFIG_LENOVO_PM_LOG
+	rpmstats = pdata;
+#endif
+/* lenovo.sw end chenyb1 add for adding master vote info in rpm_state */
 	return 0;
 }
 
@@ -539,6 +619,11 @@ static int msm_rpmstats_remove(struct platform_device *pdev)
 	debugfs_remove(dent);
 	debugfs_remove(heap_dent);
 	platform_set_drvdata(pdev, NULL);
+/* lenovo.sw begin chenyb1 add for adding master vote info in rpm_state */
+#ifdef CONFIG_LENOVO_PM_LOG
+	rpmstats = NULL;
+#endif
+/* lenovo.sw end chenyb1 add for adding master vote info in rpm_state */
 	return 0;
 }
 

@@ -289,7 +289,8 @@ static void usb_read_done_work_fn(struct work_struct *work)
 }
 
 static void diag_usb_write_done(struct diag_usb_info *ch,
-				struct diag_request *req)
+				struct diag_request *req,
+				int sync)
 {
 	int ctxt = 0;
 	int len = 0;
@@ -316,7 +317,8 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 	}
 	DIAG_LOG(DIAG_DEBUG_MUX, "full write_done, ctxt: %d\n",
 		 ctxt);
-	spin_lock_irqsave(&ch->write_lock, flags);
+	if (!sync)
+		spin_lock_irqsave(&ch->write_lock, flags);
 	list_del(&entry->track);
 	ctxt = entry->ctxt;
 	buf = entry->buf;
@@ -329,7 +331,8 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 	buf = NULL;
 	len = 0;
 	ctxt = 0;
-	spin_unlock_irqrestore(&ch->write_lock, flags);
+	if (!sync)
+		spin_unlock_irqrestore(&ch->write_lock, flags);
 	diagmem_free(driver, req, ch->mempool);
 }
 
@@ -368,7 +371,10 @@ static void diag_usb_notifier(void *priv, unsigned event,
 			   &usb_info->read_done_work);
 		break;
 	case USB_DIAG_WRITE_DONE:
-		diag_usb_write_done(usb_info, d_req);
+		diag_usb_write_done(usb_info, d_req, 0);
+		break;
+	case USB_DIAG_WRITE_DONE_SYNC:
+		diag_usb_write_done(usb_info, d_req, 1);
 		break;
 	default:
 		pr_err_ratelimited("diag: Unknown event from USB diag\n");

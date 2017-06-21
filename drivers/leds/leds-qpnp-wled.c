@@ -44,6 +44,7 @@
 #define QPNP_WLED_SOFTSTART_RAMP_DLY(b) (b + 0x53)
 #define QPNP_WLED_VLOOP_COMP_RES_REG(b)	(b + 0x55)
 #define QPNP_WLED_VLOOP_COMP_GM_REG(b)	(b + 0x56)
+#define QPNP_WLED_PSM_EN_REG(b)		(b + 0x5A)
 #define QPNP_WLED_PSM_CTRL_REG(b)	(b + 0x5B)
 #define QPNP_WLED_SC_PRO_REG(b)		(b + 0x5E)
 #define QPNP_WLED_CTRL_SPARE_REG(b)	(b + 0xDF)
@@ -72,6 +73,8 @@
 #define QPNP_WLED_LOOP_EA_GM_DFLT_AMOLED		0x03
 #define QPNP_WLED_LOOP_EA_GM_MIN			0x0
 #define QPNP_WLED_LOOP_EA_GM_MAX			0xF
+#define QPNP_WLED_PSM_ENABLE				0x80
+#define QPNP_WLED_PSM_DISABLE				0x00
 #define QPNP_WLED_VREF_PSM_MASK				0xF8
 #define QPNP_WLED_VREF_PSM_STEP_MV			50
 #define QPNP_WLED_VREF_PSM_MIN_MV			400
@@ -284,6 +287,7 @@ static int qpnp_wled_avdd_trim_adjustments[NUM_SUPPORTED_AVDD_VOLTAGES] = {
  *  @ ibb_bias_active - activate display bias
  *  @ lab_fast_precharge - fast/slow precharge
  *  @ en_ext_pfet_sc_pro - enable sc protection on external pfet
+ *  @ en_amoled_psm - Enable Pulse skipping mode in AMOLED mode
  */
 struct qpnp_wled {
 	struct led_classdev	cdev;
@@ -321,6 +325,7 @@ struct qpnp_wled {
 	bool disp_type_amoled;
 	bool en_ext_pfet_sc_pro;
 	bool prev_state;
+	bool en_amoled_psm;
 };
 
 /* helper to read a pmic register */
@@ -897,6 +902,14 @@ static int qpnp_wled_set_disp(struct qpnp_wled *wled, u16 base_addr)
 		if (rc)
 			return rc;
 
+		/* PSM EN register for AMOLED */
+		if (wled->en_amoled_psm)
+			reg = QPNP_WLED_PSM_ENABLE;
+		else
+			reg = QPNP_WLED_PSM_DISABLE;
+		rc = qpnp_wled_write_reg(wled, &reg,
+					QPNP_WLED_PSM_EN_REG(wled->ctrl_base));
+
 		/* Configure the VLOOP COMP RES register for AMOLED */
 		if (wled->loop_comp_res_kohm < QPNP_WLED_LOOP_COMP_RES_MIN_KOHM)
 			wled->loop_comp_res_kohm =
@@ -1126,16 +1139,18 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (rc)
 		return rc;
 
-	rc = qpnp_wled_read_reg(wled, &reg,
+	/* TEST: change this whole section so it never gets executed */
+	if (0) {
+		rc = qpnp_wled_read_reg(wled, &reg,
 			QPNP_WLED_CTRL_SPARE_REG(wled->ctrl_base));
-	if (rc < 0)
-		return rc;
+		if (rc < 0)
+			return rc;
 
 	/*
 	 * Configure TRIM_REG only if disp_type_amoled and it has
 	 * not already been programmed by bootloader.
 	 */
-	if (wled->disp_type_amoled && !(reg & QPNP_WLED_AVDD_SET_BIT)) {
+//	if (wled->disp_type_amoled && !(reg & QPNP_WLED_AVDD_SET_BIT)) {
 		for (i = 0; i < NUM_SUPPORTED_AVDD_VOLTAGES; i++) {
 			if (wled->avdd_target_voltage_mv ==
 					qpnp_wled_avdd_target_voltages[i])

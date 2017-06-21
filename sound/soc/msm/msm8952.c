@@ -32,6 +32,7 @@
 #include "../codecs/wsa881x-analog.h"
 #include <linux/regulator/consumer.h>
 #define DRV_NAME "msm8952-asoc-wcd"
+#define LPASS_CSR_GP_IO_MUX_QUI_CTL  0xc052000
 
 #define BTSCO_RATE_8KHZ 8000
 #define BTSCO_RATE_16KHZ 16000
@@ -69,7 +70,7 @@ static int mi2s_rx_bits_per_sample = 16;
 static int mi2s_rx_sample_rate = SAMPLING_RATE_48KHZ;
 
 static atomic_t quat_mi2s_clk_ref;
-static atomic_t quin_mi2s_clk_ref;
+ atomic_t quin_mi2s_clk_ref;
 static atomic_t auxpcm_mi2s_clk_ref;
 
 static int msm8952_enable_dig_cdc_clk(struct snd_soc_codec *codec, int enable,
@@ -80,11 +81,14 @@ static int msm8952_mclk_event(struct snd_soc_dapm_widget *w,
 static int msm8952_wsa_switch_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event);
 
+extern int msm8x16_quin_mi2s_clocks(bool enable);
+
 /*
  * Android L spec
  * Need to report LINEIN
  * if R/L channel impedance is larger than 5K ohm
  */
+/* lenovo-sw zhangrc2 change keycode for headset button  */
 static struct wcd_mbhc_config mbhc_cfg = {
 	.read_fw_bin = false,
 	.calibration = NULL,
@@ -93,16 +97,16 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = false,
 	.key_code[0] = KEY_MEDIA,
-	.key_code[1] = KEY_VOICECOMMAND,
-	.key_code[2] = KEY_VOLUMEUP,
-	.key_code[3] = KEY_VOLUMEDOWN,
+	.key_code[1] = KEY_VOLUMEUP,
+	.key_code[2] = KEY_VOLUMEDOWN,
+	.key_code[3] = KEY_VOICECOMMAND,
 	.key_code[4] = 0,
 	.key_code[5] = 0,
 	.key_code[6] = 0,
 	.key_code[7] = 0,
 	.linein_th = 5000,
 };
-
+/* lenovo-sw zhangrc2 change keycode for headset button  */
 static struct afe_clk_cfg mi2s_rx_clk_v1 = {
 	AFE_API_VERSION_I2S_CONFIG,
 	Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
@@ -154,7 +158,8 @@ static struct afe_clk_set mi2s_rx_clk = {
 static struct afe_clk_set wsa_ana_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
 	Q6AFE_LPASS_CLK_ID_MCLK_1,
-	Q6AFE_LPASS_OSR_CLK_9_P600_MHZ,
+	//Q6AFE_LPASS_OSR_CLK_9_P600_MHZ,
+	Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
 	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
 	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
 	0,
@@ -294,12 +299,78 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 	return 0;
 }
 
+
+/* lenovo-sw zhangrc2 open l22 2016-03-29 */
+#define JACK_VTG_MIN_UV	2600000
+#define JACK_VTG_MAX_UV 3300000
+
+static int jack_regulator_configure(struct msm8916_asoc_mach_data *pdata , bool on)
+{
+
+	int ret;
+
+	if (!on)
+		goto pwr_deinit;
+	
+	if (IS_ERR(pdata->vdd)) {
+		ret = PTR_ERR(pdata->vdd);
+		printk ("jack Regulator get failed vdd ret=%d\n", ret);
+	} else if (regulator_count_voltages(pdata->vdd) > 0) {
+		ret = regulator_set_voltage(pdata->vdd, JACK_VTG_MIN_UV,
+					   JACK_VTG_MAX_UV);
+		if (ret) {
+                          printk ("jack Regulator set failed vdd ret=%d\n", ret);
+			goto err_vdd_put;
+		}
+	}
+
+	return 0;
+	
+err_vdd_put:
+	regulator_put(pdata->vdd);
+	return ret;
+
+pwr_deinit:
+
+	if ((!IS_ERR(pdata->vdd)) &&
+		(regulator_count_voltages(pdata->vdd) > 0))
+		regulator_set_voltage(pdata->vdd, 0, JACK_VTG_MAX_UV);
+
+//	regulator_put(pdata->vdd);
+	return 0;
+}
+
+static int jack_regulator_power_on(struct msm8916_asoc_mach_data *pdata , bool on)
+{
+
+	int rc = 0;
+    
+	if (!on) {
+		rc = regulator_disable(pdata->vdd);
+		if (rc) {
+			printk("power vdd disable failed rc=%d\n", rc);
+			return rc;
+		}
+
+	} else {
+		rc = regulator_enable(pdata->vdd);
+		if (rc) {
+			printk("power vdd enable failed rc=%d\n", rc);
+			return rc;
+		}	
+	}
+	return 0;
+}
+/* lenovo-sw zhangrc2 open l22 2016-03-29 */
+
 /* Validate whether US EU switch is present or not */
 int is_us_eu_switch_gpio_support(struct platform_device *pdev,
 		struct msm8916_asoc_mach_data *pdata)
 {
 	int ret;
-
+/* lenovo-sw zhangrc2 open l22 2016-03-29 */	
+        int err;
+/* lenovo-sw zhangrc2 open l22 2016-03-29 */
 	pr_debug("%s\n", __func__);
 
 	/* check if US-EU GPIO is supported */
@@ -312,19 +383,34 @@ int is_us_eu_switch_gpio_support(struct platform_device *pdev,
 			pdata->us_euro_gpio);
 	} else {
 		if (!gpio_is_valid(pdata->us_euro_gpio)) {
-			pr_err("%s: Invalid gpio: %d", __func__,
+			pr_info("%s: Invalid gpio: %d", __func__,
 					pdata->us_euro_gpio);
 			return -EINVAL;
 		}
 		ret = msm_get_gpioset_index(CLIENT_WCD_INT,
 						"us_eu_gpio");
 		if (ret < 0) {
-			pr_err("%s: gpio set name does not exist: %s",
+			pr_info("%s: gpio set name does not exist: %s",
 						__func__, "us_eu_gpio");
 			return ret;
 		}
 		mbhc_cfg.swap_gnd_mic = msm8952_swap_gnd_mic;
 	}
+/* lenovo-sw zhangrc2 open l22 2016-03-29 */
+          pdata->vdd = regulator_get(&pdev->dev, "jack-avdd");
+	if (!IS_ERR(pdata->vdd)) {
+	    printk("shone regulator gte vdd ok\n");	
+	   err = jack_regulator_configure(pdata, true);
+		if(err){
+			printk("unable to configure regulator\n");			
+		}
+
+		err = jack_regulator_power_on(pdata, true);
+		if (err){
+			printk( "Can't configure regulator on\n");			
+		}	
+	}	
+/* lenovo-sw zhangrc2 open l22 2016-03-29 */	
 	return 0;
 }
 
@@ -501,7 +587,7 @@ static int msm8952_get_clk_id(int port_id)
 	case AFE_PORT_ID_SENARY_MI2S_TX:
 		return Q6AFE_LPASS_CLK_ID_SEN_MI2S_IBIT;
 	default:
-		pr_err("%s: invalid port_id: 0x%x\n", __func__, port_id);
+		pr_info("%s: invalid port_id: 0x%x\n", __func__, port_id);
 		return -EINVAL;
 	}
 }
@@ -526,7 +612,7 @@ static int msm8952_get_port_id(int be_id)
 	case MSM_BACKEND_DAI_SENARY_MI2S_TX:
 		return AFE_PORT_ID_SENARY_MI2S_TX;
 	default:
-		pr_err("%s: Invalid be_id: %d\n", __func__, be_id);
+		pr_info("%s: Invalid be_id: %d\n", __func__, be_id);
 		return -EINVAL;
 	}
 }
@@ -556,10 +642,15 @@ static uint32_t get_mi2s_rx_clk_val(int port_id)
 	 *  Derive clock value based on sample rate, bits per sample and
 	 *  channel count is used as 2
 	 */
-	if (is_mi2s_rx_port(port_id))
-		clk_val = (mi2s_rx_sample_rate * mi2s_rx_bits_per_sample * 2);
-
-	pr_debug("%s: MI2S Rx bit clock value: 0x%0x\n", __func__, clk_val);
+	if (is_mi2s_rx_port(port_id)){
+		/*lenovo-sw.lily set the clk for ti smartpa,begin*/
+		if(port_id == AFE_PORT_ID_QUINARY_MI2S_RX)
+			clk_val = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
+		else
+			clk_val = (mi2s_rx_sample_rate * mi2s_rx_bits_per_sample * 2);
+		/*lenovo-sw.lily set the clk for ti smartpa,end*/
+		}
+	pr_info("%s: MI2S Rx bit clock value: 0x%0x\n", __func__, clk_val);
 	return clk_val;
 }
 
@@ -573,12 +664,15 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 
 	port_id = msm8952_get_port_id(rtd->dai_link->be_id);
 	if (port_id < 0) {
-		pr_err("%s: Invalid port_id\n", __func__);
+		pr_info("%s: Invalid port_id\n", __func__);
 		return -EINVAL;
 	}
 	if (enable) {
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {           
 			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
+		/*lenovo-zhangrc2 porting qcom patch 2016-5-24 */		
+                 mi2s_rx_clk_v1.clk_val2 = Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
+		/*lenovo-zhangrc2 porting qcom patch 2016-5-24 */
 				mi2s_rx_clk_v1.clk_val1 =
 						get_mi2s_rx_clk_val(port_id);
 				ret = afe_set_lpass_clock(port_id,
@@ -596,6 +690,9 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
 				mi2s_tx_clk_v1.clk_val1 =
 						Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
+		/*lenovo-zhangrc2 porting qcom patch 2016-5-24 */		
+                mi2s_tx_clk_v1.clk_val2 = Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
+		/*lenovo-zhangrc2 porting qcom patch 2016-5-24 */
 				ret = afe_set_lpass_clock(port_id,
 							&mi2s_tx_clk_v1);
 			} else {
@@ -608,16 +705,19 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 							&mi2s_tx_clk);
 			}
 		} else {
-			pr_err("%s:Not valid substream.\n", __func__);
+			pr_info("%s:Not valid substream.\n", __func__);
 		}
 
 		if (ret < 0)
-			pr_err("%s:afe_set_lpass_clock_v2 failed\n", __func__);
+			pr_info("%s:afe_set_lpass_clock_v2 failed\n", __func__);
 	} else {
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
 				mi2s_rx_clk_v1.clk_val1 =
 						Q6AFE_LPASS_IBIT_CLK_DISABLE;
+		/*lenovo-zhangrc2 porting qcom patch 2016-5-24 */		
+                mi2s_rx_clk_v1.clk_val2 = Q6AFE_LPASS_OSR_CLK_DISABLE;
+		/*lenovo-zhangrc2 porting qcom patch 2016-5-24 */
 				ret = afe_set_lpass_clock(port_id,
 							&mi2s_rx_clk_v1);
 			} else {
@@ -631,6 +731,9 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
 				mi2s_tx_clk_v1.clk_val1 =
 						Q6AFE_LPASS_IBIT_CLK_DISABLE;
+				/*lenovo-zhangrc2 porting qcom patch 2016-5-24 */
+                mi2s_tx_clk_v1.clk_val2 = Q6AFE_LPASS_OSR_CLK_DISABLE;
+				/*lenovo-zhangrc2 porting qcom patch 2016-5-24 */
 				ret = afe_set_lpass_clock(port_id,
 							&mi2s_tx_clk_v1);
 			} else {
@@ -641,11 +744,11 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 							&mi2s_tx_clk);
 			}
 		} else {
-			pr_err("%s:Not valid substream.\n", __func__);
+			pr_info("%s:Not valid substream.\n", __func__);
 		}
 
 		if (ret < 0)
-			pr_err("%s:afe_set_lpass_clock_v2 failed\n", __func__);
+			pr_info("%s:afe_set_lpass_clock_v2 failed\n", __func__);
 	}
 	return ret;
 }
@@ -706,7 +809,7 @@ static int msm8952_enable_dig_cdc_clk(struct snd_soc_codec *codec,
 					&pdata->digital_cdc_core_clk);
 			}
 			if (ret < 0)
-				pr_err("%s: failed to disable CCLK\n",
+				pr_info("%s: failed to disable CCLK\n",
 						__func__);
 			atomic_set(&pdata->mclk_enabled, false);
 		}
@@ -831,13 +934,13 @@ static int loopback_mclk_put(struct snd_kcontrol *kcontrol,
 					&pdata->digital_cdc_core_clk);
 			}
 			if (ret < 0) {
-				pr_err("%s: failed to enable the MCLK: %d\n",
+				pr_info("%s: failed to enable the MCLK: %d\n",
 						__func__, ret);
 				mutex_unlock(&pdata->cdc_mclk_mutex);
 				ret = msm_gpioset_suspend(CLIENT_WCD_INT,
 								"pri_i2s");
 				if (ret)
-					pr_err("%s: failed to disable the pri gpios: %d\n",
+					pr_info("%s: failed to disable the pri gpios: %d\n",
 							__func__, ret);
 				break;
 			}
@@ -866,7 +969,7 @@ static int loopback_mclk_put(struct snd_kcontrol *kcontrol,
 					&pdata->digital_cdc_core_clk);
 			}
 			if (ret < 0) {
-				pr_err("%s: failed to disable the CCLK: %d\n",
+				pr_info("%s: failed to disable the CCLK: %d\n",
 						__func__, ret);
 				mutex_unlock(&pdata->cdc_mclk_mutex);
 				break;
@@ -876,11 +979,11 @@ static int loopback_mclk_put(struct snd_kcontrol *kcontrol,
 		mutex_unlock(&pdata->cdc_mclk_mutex);
 		ret = msm_gpioset_suspend(CLIENT_WCD_INT, "pri_i2s");
 		if (ret)
-			pr_err("%s: failed to disable the pri gpios: %d\n",
+			pr_info("%s: failed to disable the pri gpios: %d\n",
 					__func__, ret);
 		break;
 	default:
-		pr_err("%s: Unexpected input value\n", __func__);
+		pr_info("%s: Unexpected input value\n", __func__);
 		break;
 	}
 	return ret;
@@ -1120,7 +1223,7 @@ static int msm8952_enable_wsa_mclk(struct snd_soc_card *card, bool enable)
 						&wsa_ana_clk);
 			}
 			if (ret < 0) {
-				pr_err("%s: failed to enable mclk %d\n",
+				pr_info("%s: failed to enable mclk %d\n",
 					__func__, ret);
 				goto done;
 			}
@@ -1143,7 +1246,7 @@ static int msm8952_enable_wsa_mclk(struct snd_soc_card *card, bool enable)
 						&wsa_ana_clk);
 			}
 			if (ret < 0) {
-				pr_err("%s: failed to disable mclk %d\n",
+				pr_info("%s: failed to disable mclk %d\n",
 					__func__, ret);
 				goto done;
 			}
@@ -1185,7 +1288,7 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 
 	ret = msm_mi2s_sclk_ctl(substream, true);
 	if (ret < 0) {
-		pr_err("%s: failed to enable sclk %d\n",
+		pr_info("%s: failed to enable sclk %d\n",
 				__func__, ret);
 		return ret;
 	}
@@ -1193,27 +1296,27 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			SNDRV_PCM_STREAM_PLAYBACK) {
 		ret = msm8952_enable_wsa_mclk(card, true);
 		if (ret < 0) {
-			pr_err("%s: failed to enable mclk for wsa %d\n",
+			pr_info("%s: failed to enable mclk for wsa %d\n",
 				__func__, ret);
 			return ret;
 		}
 	}
 	ret =  msm8952_enable_dig_cdc_clk(codec, 1, true);
 	if (ret < 0) {
-		pr_err("failed to enable mclk\n");
+		pr_info("failed to enable mclk\n");
 		return ret;
 	}
 	/* Enable the codec mclk config */
 	ret = msm_gpioset_activate(CLIENT_WCD_INT, "pri_i2s");
 	if (ret < 0) {
-		pr_err("%s: gpio set cannot be activated %sd",
+		pr_info("%s: gpio set cannot be activated %sd",
 				__func__, "pri_i2s");
 		return ret;
 	}
 	msm8x16_wcd_mclk_enable(codec, 1, true);
 	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
 	if (ret < 0)
-		pr_err("%s: set fmt cpu dai failed; ret=%d\n", __func__, ret);
+		pr_info("%s: set fmt cpu dai failed; ret=%d\n", __func__, ret);
 
 	return ret;
 }
@@ -1274,7 +1377,7 @@ static int msm_prim_auxpcm_startup(struct snd_pcm_substream *substream)
 	/* enable the gpio's used for the external AUXPCM interface */
 	ret = msm_gpioset_activate(CLIENT_WCD_INT, "quat_i2s");
 	if (ret < 0)
-		pr_err("%s(): configure gpios failed = %s\n",
+		pr_info("%s(): configure gpios failed = %s\n",
 				__func__, "quat_i2s");
 	return ret;
 }
@@ -1302,7 +1405,7 @@ static void msm_prim_auxpcm_shutdown(struct snd_pcm_substream *substream)
 	}
 	ret = msm_gpioset_suspend(CLIENT_WCD_INT, "quat_i2s");
 	if (ret < 0)
-		pr_err("%s(): configure gpios failed = %s\n",
+		pr_info("%s(): configure gpios failed = %s\n",
 				__func__, "quat_i2s");
 }
 
@@ -1343,14 +1446,14 @@ static int msm_sec_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			goto err;
 		}
 	} else {
-			pr_err("%s: error codec type\n", __func__);
+			pr_info("%s: error codec type\n", __func__);
 	}
 	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
 	if (ret < 0) {
-		pr_err("%s: set fmt cpu dai failed\n", __func__);
+		pr_info("%s: set fmt cpu dai failed\n", __func__);
 		ret = msm_gpioset_suspend(CLIENT_WCD_INT, "sec_i2s");
 		if (ret < 0) {
-			pr_err("%s: gpio set cannot be de-activated %sd",
+			pr_info("%s: gpio set cannot be de-activated %sd",
 						__func__, "sec_i2s");
 			goto err;
 		}
@@ -1359,7 +1462,7 @@ static int msm_sec_mi2s_snd_startup(struct snd_pcm_substream *substream)
 err:
 	ret = msm_mi2s_sclk_ctl(substream, false);
 	if (ret < 0)
-		pr_err("failed to disable sclk\n");
+		pr_info("failed to disable sclk\n");
 	return ret;
 }
 
@@ -1375,13 +1478,13 @@ static void msm_sec_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	if ((pdata->ext_pa & SEC_MI2S_ID) == SEC_MI2S_ID) {
 		ret = msm_gpioset_suspend(CLIENT_WCD_INT, "sec_i2s");
 		if (ret < 0) {
-			pr_err("%s: gpio set cannot be de-activated: %sd",
+			pr_info("%s: gpio set cannot be de-activated: %sd",
 					__func__, "sec_i2s");
 			return;
 		}
 		ret = msm_mi2s_sclk_ctl(substream, false);
 		if (ret < 0)
-			pr_err("%s:clock disable failed\n", __func__);
+			pr_info("%s:clock disable failed\n", __func__);
 	}
 }
 
@@ -1396,53 +1499,167 @@ static int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 				substream->name, substream->stream);
-	if (pdata->vaddr_gpio_mux_mic_ctl) {
-		val = ioread32(pdata->vaddr_gpio_mux_mic_ctl);
-		val = val | 0x02020002;
-		iowrite32(val, pdata->vaddr_gpio_mux_mic_ctl);
-	}
-	ret = msm_mi2s_sclk_ctl(substream, true);
-	if (ret < 0) {
-		pr_err("failed to enable sclk\n");
-		return ret;
-	}
-	ret = msm_gpioset_activate(CLIENT_WCD_INT, "quat_i2s");
-	if (ret < 0) {
-		pr_err("failed to enable codec gpios\n");
-		goto err;
+	if ((pdata->ext_pa & QUAT_MI2S_ID) == QUAT_MI2S_ID) {
+		if (pdata->vaddr_gpio_mux_mic_ctl) {
+			val = ioread32(pdata->vaddr_gpio_mux_mic_ctl);
+			val = val | 0x02020002;
+			iowrite32(val, pdata->vaddr_gpio_mux_mic_ctl);
+		}
+		ret = msm_mi2s_sclk_ctl(substream, true);
+		if (ret < 0) {
+			pr_info("failed to enable sclk\n");
+			return ret;
+		}
+		ret = msm_gpioset_activate(CLIENT_WCD_INT, "quat_i2s");
+		if (ret < 0) {
+			pr_info("failed to enable codec gpios\n");
+			goto err;
+		}
+	} else {
+			pr_info("%s: error codec type\n", __func__);
 	}
 	if (atomic_inc_return(&quat_mi2s_clk_ref) == 1) {
 		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
 		if (ret < 0)
-			pr_err("%s: set fmt cpu dai failed\n", __func__);
+			pr_info("%s: set fmt cpu dai failed\n", __func__);
 	}
 	return ret;
 err:
 	ret = msm_mi2s_sclk_ctl(substream, false);
 	if (ret < 0)
-		pr_err("failed to disable sclk\n");
+		pr_info("failed to disable sclk\n");
 	return ret;
 }
 
 static void msm_quat_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 {
 	int ret;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
-	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
+	pr_info("%s(): substream = %s  stream = %d\n", __func__,
 				substream->name, substream->stream);
-	ret = msm_mi2s_sclk_ctl(substream, false);
-	if (ret < 0)
-		pr_err("%s:clock disable failed\n", __func__);
-	if (atomic_read(&quat_mi2s_clk_ref) > 0)
-		atomic_dec(&quat_mi2s_clk_ref);
-	ret = msm_gpioset_suspend(CLIENT_WCD_INT, "quat_i2s");
-	if (ret < 0) {
-		pr_err("%s: gpio set cannot be de-activated %sd",
-					__func__, "quat_i2s");
-		return;
+	if ((pdata->ext_pa & QUAT_MI2S_ID) == QUAT_MI2S_ID) {
+		ret = msm_mi2s_sclk_ctl(substream, false);
+		if (ret < 0)
+			pr_info("%s:clock disable failed\n", __func__);
+		if (atomic_read(&quat_mi2s_clk_ref) > 0)
+			atomic_dec(&quat_mi2s_clk_ref);
+		ret = msm_gpioset_suspend(CLIENT_WCD_INT, "quat_i2s");
+		if (ret < 0) {
+			pr_info("%s: gpio set cannot be de-activated %sd",
+						__func__, "quat_i2s");
+			return;
+		}
 	}
 }
 
+
+/* lenovo-sw zhouwl, 2014-07-17, add for quat mi2s control base pre-cs build */
+static int msm8x16_quin_mi2s_clk_int_codec_mux(void)
+{
+	int ret = 0;
+	int val = 0;
+	void __iomem *vaddr = NULL;
+
+	/* configure the Primary, Sec and Tert mux for Mi2S interface
+	 * slave select to invalid state, for machine mode this
+	 * should move to HW, I do not like to do it here
+	 */
+
+#if 0	
+	vaddr = ioremap(LPASS_CSR_GP_IO_MUX_SPKR_CTL , 4);
+	if (!vaddr) {
+		pr_info("%s ioremap failure for addr %x",
+				__func__, LPASS_CSR_GP_IO_MUX_SPKR_CTL);
+		return -ENOMEM;
+	}
+
+	/* enable sec MI2S interface to TLMM GPIO */
+	val = ioread32(vaddr);
+	val = val | 0x00000002;
+	pr_info("%s: quat mux val = %x\n", __func__, val);
+
+	iowrite32(val, vaddr);
+	iounmap(vaddr);
+#endif
+
+	vaddr = ioremap(LPASS_CSR_GP_IO_MUX_QUI_CTL , 4);
+	if (!vaddr) {
+		pr_info("%s ioremap failure for addr %x",
+				__func__, LPASS_CSR_GP_IO_MUX_QUI_CTL);
+		return -ENOMEM;
+	}
+
+	/* enable QUAT MI2S interface to TLMM GPIO */
+	val = ioread32(vaddr);
+	val = val | 0x00000001;
+	pr_info("%s: quin mux configuration = %x\n", __func__, val);
+
+	iowrite32(val, vaddr);
+	iounmap(vaddr);
+	return ret;
+}
+
+
+int msm8x16_quin_mi2s_clk_ctl(bool enable)
+{
+	int ret = 0;
+	pr_info("zhouwl >>>%s, enable = %d, quin_mi2s_clk_ref = %d\n",
+			 __func__, enable, atomic_read(&quin_mi2s_clk_ref));
+	if(enable) {	
+			pr_info("enter>>>%s, enable = %d, quat_mi2s_clk_ref = %d\n", __func__, enable, atomic_read(&quin_mi2s_clk_ref));
+			ret = msm8x16_quin_mi2s_clk_int_codec_mux();
+			if (ret < 0) {
+				pr_info("%s: msm8x16_quat_mi2s_clk_int_codec_mux: failed!!!\n", __func__);
+				return ret;
+			}
+			mi2s_rx_clk.clk_freq_in_hz = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
+			mi2s_rx_clk.enable = enable ;
+			mi2s_rx_clk.clk_id =msm8952_get_clk_id(AFE_PORT_ID_QUINARY_MI2S_RX);
+			pr_info("%s: mi2s_rx_clk enable is %d\n",__func__,mi2s_rx_clk.enable);
+
+			ret = afe_set_lpass_clock_v2(AFE_PORT_ID_QUINARY_MI2S_RX,
+					&mi2s_rx_clk);
+			if (ret < 0) {
+				pr_info("%s: afe_set_lpass_clock failed\n", __func__);
+				return ret;
+			}
+			ret = msm_gpioset_activate(CLIENT_WCD_INT, "quin_i2s");
+			
+			if (ret < 0) {
+				pr_info("failed to enable codec gpios\n");
+			}
+			msm8x16_quin_mi2s_clocks(enable);
+	
+	} else {		
+			pr_info("enter>>>%s, enable = %d, quin_mi2s_clk_ref = %d\n", __func__, enable, atomic_read(&quin_mi2s_clk_ref));		
+		  /* lenovo-sw zhangrc2 porting qcom patch to resolve modem sleep 2015-06-11*/	
+	     	msm8x16_quin_mi2s_clocks(enable);
+              	 msleep(100);  
+            /* lenovo-sw zhangrc2 porting qcom patch to resolve modem sleep 2015-06-11*/  
+			//mi2s_rx_clk_v1.clk_val1= Q6AFE_LPASS_IBIT_CLK_DISABLE;
+			//mi2s_rx_clk_v1.clk_val2= Q6AFE_LPASS_OSR_CLK_DISABLE;
+			mi2s_rx_clk.enable = enable ;
+			mi2s_rx_clk.clk_id =msm8952_get_clk_id(AFE_PORT_ID_QUINARY_MI2S_RX);
+			printk("%s: mi2s_rx_clk disable is %d\n",__func__,mi2s_rx_clk.enable);
+			ret = afe_set_lpass_clock_v2(AFE_PORT_ID_QUINARY_MI2S_RX,
+						&mi2s_rx_clk);
+			if (ret < 0) {
+				pr_info("%s: afe_set_lpass_clock rx failed\n", __func__);
+				return ret;
+			}
+                 		  	
+			ret = msm_gpioset_suspend(CLIENT_WCD_INT, "quin_i2s");
+			if (ret < 0) {
+				pr_info("%s: gpio set cannot be de-activated %sd",
+						__func__, "quin_i2s");
+			}
+	}
+	return ret;
+}
+EXPORT_SYMBOL(msm8x16_quin_mi2s_clk_ctl);
 static int msm_quin_mi2s_snd_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -1451,9 +1668,9 @@ static int msm_quin_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	struct msm8916_asoc_mach_data *pdata =
 			snd_soc_card_get_drvdata(card);
 	int ret = 0, val = 0;
-
-	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
-				substream->name, substream->stream);
+	pr_info("%s enter: substream = %s  stream = %d, ext_pa = %d,  quin_mi2s_clk_ref= %d\n", __func__,
+		substream->name, substream->stream, pdata->ext_pa,atomic_read(&quin_mi2s_clk_ref));	
+	if (atomic_inc_return(&quin_mi2s_clk_ref) == 1)  {
 	if (pdata->vaddr_gpio_mux_quin_ctl) {
 		val = ioread32(pdata->vaddr_gpio_mux_quin_ctl);
 		val = val | 0x00000001;
@@ -1463,44 +1680,46 @@ static int msm_quin_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	}
 	ret = msm_mi2s_sclk_ctl(substream, true);
 	if (ret < 0) {
-		pr_err("failed to enable sclk\n");
+		pr_info("failed to enable sclk\n");
 		return ret;
 	}
 	ret = msm_gpioset_activate(CLIENT_WCD_INT, "quin_i2s");
 	if (ret < 0) {
-		pr_err("failed to enable codec gpios\n");
+		pr_info("failed to enable codec gpios\n");
 		goto err;
-	}
-	if (atomic_inc_return(&quin_mi2s_clk_ref) == 1) {
-		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
-		if (ret < 0)
-			pr_err("%s: set fmt cpu dai failed\n", __func__);
+	}	
+	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
+	if (ret < 0)
+		pr_info("%s: set fmt cpu dai failed\n", __func__);
 	}
 	return ret;
 err:
 	ret = msm_mi2s_sclk_ctl(substream, false);
 	if (ret < 0)
-		pr_err("failed to disable sclk\n");
+		pr_info("failed to disable sclk\n");
 	return ret;
 }
 
 static void msm_quin_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 {
-	int ret;
 
-	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
-				substream->name, substream->stream);
-	ret = msm_mi2s_sclk_ctl(substream, false);
-	if (ret < 0)
-		pr_err("%s:clock disable failed\n", __func__);
-	if (atomic_read(&quin_mi2s_clk_ref) > 0)
-		atomic_dec(&quin_mi2s_clk_ref);
-	ret = msm_gpioset_suspend(CLIENT_WCD_INT, "quin_i2s");
-	if (ret < 0) {
-		pr_err("%s: gpio set cannot be de-activated %sd",
-					__func__, "quin_i2s");
-		return;
-	}
+	int ret;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);	
+	pr_info("%s enter: substream = %s  stream = %d, ext_pa = %d,  quin_mi2s_clk_ref= %d\n", __func__,
+		substream->name, substream->stream, pdata->ext_pa,atomic_read(&quin_mi2s_clk_ref));	
+	if ((atomic_dec_return(&quin_mi2s_clk_ref) == 0)  && ((pdata->ext_pa & QUIN_MI2S_ID) == QUIN_MI2S_ID)) {	
+		ret = msm_mi2s_sclk_ctl(substream, false);
+		if (ret < 0)
+			pr_info("%s:clock disable failed\n", __func__);
+		ret = msm_gpioset_suspend(CLIENT_WCD_INT, "quin_i2s");
+		if (ret < 0) {
+			pr_info("%s: gpio set cannot be de-activated %sd",
+						__func__, "quin_i2s");
+			return;
+		}
+	}	
 }
 
 static void *def_msm8952_wcd_mbhc_cal(void)
@@ -1513,9 +1732,9 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 				WCD_MBHC_DEF_RLOADS), GFP_KERNEL);
 	if (!msm8952_wcd_cal)
 		return NULL;
-
+/* lenovo-sw zhangrc2 change keycode for headset button  */
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(msm8952_wcd_cal)->X) = (Y))
-	S(v_hs_max, 1500);
+	S(v_hs_max, 1700);
 #undef S
 #define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(msm8952_wcd_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
@@ -1538,20 +1757,20 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 	 * 210-290 == Button 2
 	 * 360-680 == Button 3
 	 */
-	btn_low[0] = 75;
-	btn_high[0] = 75;
-	btn_low[1] = 150;
-	btn_high[1] = 150;
-	btn_low[2] = 225;
-	btn_high[2] = 225;
+	btn_low[0] = 100;
+	btn_high[0] = 100;
+	btn_low[1] = 200;
+	btn_high[1] = 200;
+	btn_low[2] = 450;
+	btn_high[2] = 450;
 	btn_low[3] = 450;
 	btn_high[3] = 450;
-	btn_low[4] = 500;
-	btn_high[4] = 500;
+	btn_low[4] = 450;
+	btn_high[4] = 450;
 
 	return msm8952_wcd_cal;
 }
-
+/* lenovo-sw zhangrc2 change keycode for headset button  */
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_codec *codec = rtd->codec;
@@ -1559,7 +1778,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	int ret = -ENOMEM;
 
-	pr_debug("%s(),dev_name%s\n", __func__, dev_name(cpu_dai->dev));
+	pr_info("%s(),dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
 	snd_soc_add_codec_controls(codec, msm_snd_controls,
 			ARRAY_SIZE(msm_snd_controls));
@@ -1593,7 +1812,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (mbhc_cfg.calibration) {
 		ret = msm8x16_wcd_hs_detect(codec, &mbhc_cfg);
 		if (ret) {
-			pr_err("%s: msm8x16_wcd_hs_detect failed\n", __func__);
+			pr_info("%s: msm8x16_wcd_hs_detect failed\n", __func__);
 			kfree(mbhc_cfg.calibration);
 			return ret;
 		}
@@ -2511,8 +2730,10 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.stream_name = "Quinary MI2S Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.5",
 		.platform_name = "msm-pcm-routing",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
+	//	.codec_dai_name = "snd-soc-dummy-dai",
+	//	.codec_name = "snd-soc-dummy",
+	        .codec_dai_name = "msm-stub-tx",
+		.codec_name     = "msm-stub-codec.1",		
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_TX,
@@ -2545,8 +2766,10 @@ static struct snd_soc_dai_link msm8952_quin_dai_link[] = {
 		.stream_name = "Quinary MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.5",
 		.platform_name = "msm-pcm-routing",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
+		 .codec_dai_name = "msm-stub-rx",
+		.codec_name     = "msm-stub-codec.1",		
+//		.codec_dai_name = "snd-soc-dummy-dai",
+//		.codec_name = "snd-soc-dummy",
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,
@@ -2645,7 +2868,7 @@ void msm8952_disable_mclk(struct work_struct *work)
 				&pdata->digital_cdc_core_clk);
 		}
 		if (ret < 0)
-			pr_err("%s failed to disable the CCLK\n", __func__);
+			pr_info("%s failed to disable the CCLK\n", __func__);
 		atomic_set(&pdata->mclk_enabled, false);
 	}
 	mutex_unlock(&pdata->cdc_mclk_mutex);
@@ -2708,7 +2931,7 @@ static int msm8952_populate_dai_link_component_of_node(
 	struct device_node *phandle;
 
 	if (!cdev) {
-		pr_err("%s: Sound card device memory NULL\n", __func__);
+		pr_info("%s: Sound card device memory NULL\n", __func__);
 		return -ENODEV;
 	}
 
@@ -2723,7 +2946,7 @@ static int msm8952_populate_dai_link_component_of_node(
 					"asoc-platform-names",
 					dai_link[i].platform_name);
 			if (index < 0) {
-				pr_err("%s: No match found for platform name: %s\n",
+				pr_info("%s: No match found for platform name: %s\n",
 					__func__, dai_link[i].platform_name);
 				ret = index;
 				goto cpu_dai;
@@ -2732,7 +2955,7 @@ static int msm8952_populate_dai_link_component_of_node(
 					"asoc-platform",
 					index);
 			if (!phandle) {
-				pr_err("%s: retrieving phandle for platform %s, index %d failed\n",
+				pr_info("%s: retrieving phandle for platform %s, index %d failed\n",
 					__func__, dai_link[i].platform_name,
 						index);
 				ret = -ENODEV;
@@ -2752,7 +2975,7 @@ cpu_dai:
 			phandle = of_parse_phandle(cdev->of_node, "asoc-cpu",
 					index);
 			if (!phandle) {
-				pr_err("%s: retrieving phandle for cpu dai %s failed\n",
+				pr_info("%s: retrieving phandle for cpu dai %s failed\n",
 					__func__, dai_link[i].cpu_dai_name);
 				ret = -ENODEV;
 				goto err;
@@ -2771,11 +2994,13 @@ codec_dai:
 			phandle = of_parse_phandle(cdev->of_node, "asoc-codec",
 					index);
 			if (!phandle) {
-				pr_err("%s: retrieving phandle for codec dai %s failed\n",
+				pr_info("%s: retrieving phandle for codec dai %s failed\n",
 					__func__, dai_link[i].codec_name);
 				ret = -ENODEV;
 				goto err;
 			}
+			pr_info("%s: codec dai %s failed\n",
+					__func__, dai_link[i].codec_name);
 			dai_link[i].codec_of_node = phandle;
 			dai_link[i].codec_name = NULL;
 		}
@@ -2923,7 +3148,7 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	pdata->vaddr_gpio_mux_mic_ctl =
 		ioremap(muxsel->start, resource_size(muxsel));
 	if (pdata->vaddr_gpio_mux_mic_ctl == NULL) {
-		pr_err("%s ioremap failure for muxsel virt addr\n",
+		pr_info("%s ioremap failure for muxsel virt addr\n",
 				__func__);
 		ret = -ENOMEM;
 		goto err1;
@@ -2939,7 +3164,7 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	pdata->vaddr_gpio_mux_spkr_ctl =
 		ioremap(muxsel->start, resource_size(muxsel));
 	if (pdata->vaddr_gpio_mux_spkr_ctl == NULL) {
-		pr_err("%s ioremap failure for muxsel virt addr\n",
+		pr_info("%s ioremap failure for muxsel virt addr\n",
 				__func__);
 		ret = -ENOMEM;
 		goto err;
@@ -2955,7 +3180,7 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	pdata->vaddr_gpio_mux_pcm_ctl =
 		ioremap(muxsel->start, resource_size(muxsel));
 	if (pdata->vaddr_gpio_mux_pcm_ctl == NULL) {
-		pr_err("%s ioremap failure for muxsel virt addr\n",
+		pr_info("%s ioremap failure for muxsel virt addr\n",
 				__func__);
 		ret = -ENOMEM;
 		goto err;
@@ -2970,7 +3195,7 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	pdata->vaddr_gpio_mux_quin_ctl =
 		ioremap(muxsel->start, resource_size(muxsel));
 	if (pdata->vaddr_gpio_mux_quin_ctl == NULL) {
-		pr_err("%s ioremap failure for muxsel virt addr\n",
+		pr_info("%s ioremap failure for muxsel virt addr\n",
 				__func__);
 		ret = -ENOMEM;
 		goto err;
@@ -3050,7 +3275,7 @@ parse_mclk_freq:
 
 			ret = msm8952_init_wsa_switch_supply(pdev, pdata);
 			if (ret < 0) {
-				pr_err("%s: failed to init wsa_switch vdd supply %d\n",
+				pr_info("%s: failed to init wsa_switch vdd supply %d\n",
 						__func__, ret);
 				goto err;
 			}
@@ -3093,14 +3318,14 @@ parse_mclk_freq:
 
 	ret = is_us_eu_switch_gpio_support(pdev, pdata);
 	if (ret < 0) {
-		pr_err("%s: failed to is_us_eu_switch_gpio_support %d\n",
+		pr_info("%s: failed to is_us_eu_switch_gpio_support %d\n",
 				__func__, ret);
 		goto err;
 	}
 
 	ret = is_ext_spk_gpio_support(pdev, pdata);
 	if (ret < 0)
-		pr_err("%s:  doesn't support external speaker pa\n",
+		pr_info("%s:  doesn't support external speaker pa\n",
 				__func__);
 
 	ret = of_property_read_string(pdev->dev.of_node,
