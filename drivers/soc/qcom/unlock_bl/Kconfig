@@ -1,0 +1,5 @@
+config LENOVO_UNLOCK_BL
+	bool "lenovo_unlock_bl"
+	help
+         This driver helps in mitigating unlock code from LK into proc system.
+	 Say Y here could be enabled with DTS parsing and copy data into userspace.
