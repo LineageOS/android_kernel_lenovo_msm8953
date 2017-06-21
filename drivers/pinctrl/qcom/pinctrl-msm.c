@@ -30,6 +30,8 @@
 #include <linux/syscore_ops.h>
 #include <linux/reboot.h>
 #include <linux/irqchip/msm-mpm-irq.h>
+#include <linux/syscore_ops.h>
+#include <linux/wakeup_reason.h>
 #include "../core.h"
 #include "../pinconf.h"
 #include "pinctrl-msm.h"
@@ -930,6 +932,11 @@ static void msm_pinctrl_ebi2_emmc_enable(struct msm_pinctrl *pctrl,
 	val |= BIT(tlmm_emmc_boot_select);
 	writel_relaxed(val, pctrl->regs + TLMM_EBI2_EMMC_GPIO_CFG);
 }
+/* chenyb1, 20130515, Add sysfs for gpio's debug, START */
+#ifdef CONFIG_LENOVO_PM_LOG
+void *tlmm_reg_base;
+#endif
+/* chenyb1, 20130515, Add sysfs for gpio's debug, END */
 
 #ifdef CONFIG_PM
 static int msm_pinctrl_suspend(void)
@@ -1002,6 +1009,12 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 	if (IS_ERR(pctrl->regs))
 		return PTR_ERR(pctrl->regs);
 
+/* chenyb1, 20130515, Add sysfs for gpio's debug, START */
+#ifdef CONFIG_LENOVO_PM_LOG
+	tlmm_reg_base = pctrl->regs;
+	printk("%s(), %d, TLMM_BASE=%lx\n", __func__, __LINE__, (unsigned long int)(void *)tlmm_reg_base);
+#endif
+/* chenyb1, 20130515, Add sysfs for gpio's debug, END */
 	msm_pinctrl_setup_pm_reset(pctrl);
 	if (!of_property_read_u32(pctrl->dev->of_node,
 					"qcom,tlmm-emmc-boot-select",

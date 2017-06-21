@@ -21,6 +21,8 @@ struct iio_kfifo {
 static inline int __iio_allocate_kfifo(struct iio_kfifo *buf,
 				int bytes_per_datum, int length)
 {
+	printk("%s-%d: l=%d bpd=%d\n", __func__, __LINE__, length, bytes_per_datum);
+
 	if ((length == 0) || (bytes_per_datum == 0))
 		return -EINVAL;
 
@@ -32,17 +34,23 @@ static int iio_request_update_kfifo(struct iio_buffer *r)
 {
 	int ret = 0;
 	struct iio_kfifo *buf = iio_to_kfifo(r);
+	struct __kfifo * ptr = (struct __kfifo *)&buf->kf;
 
+	printk("%s-%d: kf.data=%p\n", __func__, __LINE__, ptr->data);
 	mutex_lock(&buf->user_lock);
 	if (buf->update_needed) {
+		printk("%s-%d: kf.data=%p\n", __func__, __LINE__, ptr->data);
 		kfifo_free(&buf->kf);
 		ret = __iio_allocate_kfifo(buf, buf->buffer.bytes_per_datum,
 				   buf->buffer.length);
 		buf->update_needed = false;
+		printk("%s-%d: kf.data=%p\n", __func__, __LINE__, ptr->data);
 	} else {
+		printk("%s-%d: kf.data=%p\n", __func__, __LINE__, ptr->data);
 		kfifo_reset_out(&buf->kf);
 	}
 	mutex_unlock(&buf->user_lock);
+	printk("%s-%d: kf.data=%p ret=%d\n", __func__, __LINE__, ptr->data, ret);
 
 	return ret;
 }
@@ -104,9 +112,23 @@ static int iio_store_to_kfifo(struct iio_buffer *r,
 {
 	int ret;
 	struct iio_kfifo *kf = iio_to_kfifo(r);
+
+	mutex_lock(&kf->user_lock);
+
+	if (!&kf->kf) {
+		printk("kfifo is not allocated!\n");
+		mutex_unlock(&kf->user_lock);
+		return -ENOMEM;
+	}
+
 	ret = kfifo_in(&kf->kf, data, 1);
-	if (ret != 1)
+	if (ret != 1) {
+		printk("kfifo_in fail ret=%d\n", ret);
+		mutex_unlock(&kf->user_lock);
 		return -EBUSY;
+	}
+
+	mutex_unlock(&kf->user_lock);
 
 	wake_up_interruptible_poll(&r->pollq, POLLIN | POLLRDNORM);
 
