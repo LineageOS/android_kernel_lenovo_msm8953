@@ -40,8 +40,12 @@
 				  SND_JACK_BTN_4 | SND_JACK_BTN_5 | \
 				  SND_JACK_BTN_6 | SND_JACK_BTN_7)
 #define OCP_ATTEMPT 1
+/* lenovo-sw zhangrc2  reduce detect time 2016-7-12 begin */
 #define HS_DETECT_PLUG_TIME_MS (3 * 1000)
-#define SPECIAL_HS_DETECT_TIME_MS (2 * 1000)
+#define SPECIAL_HS_DETECT_TIME_MS (2*1000)
+//#define HS_DETECT_PLUG_TIME_MS (3 * 1000)
+//#define SPECIAL_HS_DETECT_TIME_MS (2*100)
+/* lenovo-sw zhangrc2  reduce detect time 2016-7-12 end */
 #define MBHC_BUTTON_PRESS_THRESHOLD_MIN 250
 #define GND_MIC_SWAP_THRESHOLD 4
 #define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 100
@@ -509,19 +513,25 @@ static void wcd_mbhc_set_and_turnoff_hph_padac(struct wcd_mbhc *mbhc)
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPH_PA_EN, 0);
 	usleep_range(wg_time * 1000, wg_time * 1000 + 50);
 }
-
+ /* lenovo-sw zhangrc2   support selfie stick 2016-2-2 */
 int wcd_mbhc_get_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 			uint32_t *zr)
 {
 	*zl = mbhc->zl;
 	*zr = mbhc->zr;
-
-	if (*zl && *zr)
-		return 0;
+         pr_debug("%s shone get imp zl is %d, zr is %d\n",__func__,*zl ,*zr );   
+	if (*zl && *zr){
+               if (*zl > 20000 && *zr > 20000) {
+	              pr_debug("%s headset type  is selfie stick\n", __func__);		   	
+                       return 1;
+               	}			   
+               else
+		     return 0;
+	}	
 	else
 		return -EINVAL;
 }
-
+ /* lenovo-sw zhangrc2   support selfie stick 2016-2-2 */
 static void wcd_mbhc_hs_elec_irq(struct wcd_mbhc *mbhc, int irq_type,
 				 bool enable)
 {
@@ -834,7 +844,24 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 						SND_JACK_HEADPHONE);
 			if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADSET)
 				wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADSET);
-		wcd_mbhc_report_plug(mbhc, 1, SND_JACK_UNSUPPORTED);
+
+			/* lenovo-sw zhangrc2   support selfie stick 2016-2-2 */			
+		        if (mbhc->impedance_detect) {
+					int impe;
+					if (mbhc->impedance_detect &&
+					mbhc->mbhc_cb->compute_impedance &&
+					(mbhc->mbhc_cfg->linein_th != 0)) 
+						mbhc->mbhc_cb->compute_impedance(mbhc,
+						&mbhc->zl, &mbhc->zr);
+						impe = wcd_mbhc_get_impedance(mbhc,   &mbhc->zl, &mbhc->zr);
+                      			 if (impe){
+								 	  
+                              			 wcd_mbhc_report_plug(mbhc, 1, SND_JACK_HEADSET);			 
+                      			 }  else {
+                               			wcd_mbhc_report_plug(mbhc, 1, SND_JACK_HEADSET);
+                       			}							   
+			}
+ 		/* lenovo-sw zhangrc2   support selfie stick 2016-2-2 */
 	} else if (plug_type == MBHC_PLUG_TYPE_HEADSET) {
 		if (mbhc->mbhc_cfg->enable_anc_mic_detect)
 			anc_mic_found = wcd_mbhc_detect_anc_plug_type(mbhc);
@@ -1051,7 +1078,7 @@ static void wcd_enable_mbhc_supply(struct wcd_mbhc *mbhc,
 {
 
 	struct snd_soc_codec *codec = mbhc->codec;
-
+        pr_debug("%s: enable mbhc supply\n", __func__);
 	/*
 	 * Do not disable micbias if recording is going on or
 	 * headset is inserted on the other side of the extn
@@ -1082,6 +1109,10 @@ static void wcd_enable_mbhc_supply(struct wcd_mbhc *mbhc,
 							WCD_MBHC_EN_CS);
 		} else if (plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
+			/* lenovo-sw zhangrc2 support selfie stick */
+			} else if (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) {
+			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);	
+			/* lenovo-sw zhangrc2 support selfie stick */
 		} else {
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_NONE);
 		}
@@ -1152,6 +1183,10 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	int rc, spl_hs_count = 0;
 	int cross_conn;
 	int try = 0;
+
+	/* lenovo-sw zhangrc2  porting  8939L  change for audio */
+	int apple_detect_count =0;
+         /* lenovo-sw zhangrc2  porting  8939L  change for audio */
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -1346,6 +1381,11 @@ correct_plug_type:
 			pr_debug("%s: cable is extension cable\n", __func__);
 			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
 			wrk_complete = true;
+			/* lenovo-sw zhangrc2  porting  8939L  change for audio */
+			if (5 == apple_detect_count)
+				break;
+			++apple_detect_count;
+			/* lenovo-sw zhangrc2  porting  8939L  change for audio */
 		} else {
 			pr_debug("%s: cable might be headset: %d\n", __func__,
 					plug_type);
@@ -1388,17 +1428,36 @@ correct_plug_type:
 			 __func__, mbhc->current_plug);
 		goto enable_supply;
 	}
-
+/* lenovo-sw zhangrc2  support selfie stick */
 	if (plug_type == MBHC_PLUG_TYPE_HIGH_HPH &&
 		(!det_extn_cable_en)) {
+		// wangwy6 here, it will report as selfie stick, althouth type is GND_MIC_SWAP
+		// in the wcd_mbhc_find_plug_and_report, impedance will be read to judge if it is a selfie stick
+		wcd_mbhc_find_plug_and_report(mbhc, MBHC_PLUG_TYPE_GND_MIC_SWAP);
 		if (wcd_is_special_headset(mbhc)) {
 			pr_debug("%s: Special headset found %d\n",
 					__func__, plug_type);
 			plug_type = MBHC_PLUG_TYPE_HEADSET;
 			goto report;
+		} else {                          
+		        if (mbhc->impedance_detect) {
+					int impe;
+					if (mbhc->impedance_detect &&
+					mbhc->mbhc_cb->compute_impedance &&
+					(mbhc->mbhc_cfg->linein_th != 0)) 
+						mbhc->mbhc_cb->compute_impedance(mbhc,
+						&mbhc->zl, &mbhc->zr);
+						impe = wcd_mbhc_get_impedance(mbhc,   &mbhc->zl, &mbhc->zr);
+						if (impe ==1) {
+							pr_debug("%s: swap headset found %d\n",
+						__func__, plug_type);	
+						plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
+						goto report;
+					}	
+		      }
 		}
 	}
-
+/* lenovo-sw zhangrc2  support selfie stick */
 report:
 	if (wcd_swch_level_remove(mbhc)) {
 		pr_debug("%s: Switch level is low\n", __func__);
@@ -1513,6 +1572,9 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 
 	if ((mbhc->current_plug == MBHC_PLUG_TYPE_NONE) &&
 	    detection_type) {
+		/* delay detection for debounce */
+		msleep(500);
+
 		/* Make sure MASTER_BIAS_CTL is enabled */
 		mbhc->mbhc_cb->mbhc_bias(codec, true);
 
@@ -1641,7 +1703,6 @@ static int wcd_mbhc_get_button_mask(struct wcd_mbhc *mbhc)
 	int btn;
 
 	btn = mbhc->mbhc_cb->map_btn_code_to_num(mbhc->codec);
-
 	switch (btn) {
 	case 0:
 		mask = SND_JACK_BTN_0;
@@ -2443,6 +2504,28 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 				__func__);
 			return ret;
 		}
+
+
+/* lenovo-sw zhangrc2 add keycode volume up and down for headset button begin */
+		ret = snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_1,
+				       KEY_VOLUMEUP);
+		if (ret) {
+			pr_err("%s: Failed to set code for btn-1\n",
+				__func__);
+			return ret;
+		}
+
+		ret = snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_2,
+				       KEY_VOLUMEDOWN);
+		if (ret) {
+			pr_err("%s: Failed to set code for btn-2\n",
+				__func__);
+			return ret;
+		}
+
+/* lenovo-sw zhangrc2 add keycode volume up and down for headset button end */
 
 		set_bit(INPUT_PROP_NO_DUMMY_RELEASE,
 			mbhc->button_jack.jack->input_dev->propbit);
