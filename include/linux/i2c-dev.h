@@ -25,4 +25,6 @@
 #include <uapi/linux/i2c-dev.h>
 
 #define I2C_MAJOR	89		/* Device major number		*/
+
+#define ENABLE_MI2S_CLK    0x0709       /* lenovo-sw zhouwl, 2014-05-27, add for control mi2s clock */
 #endif /* _LINUX_I2C_DEV_H */
