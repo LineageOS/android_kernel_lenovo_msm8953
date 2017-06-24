@@ -1,2 +1,5 @@
-# Top-level Makefile calls into asm-$(ARCH)
-# List only non-arch directories below
+# UAPI Header export list
+header-y += lenovo_media/
+header-y += lenovo_video/
+header-y += lenovo_soc/
+
