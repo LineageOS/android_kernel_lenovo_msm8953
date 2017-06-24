@@ -5,6 +5,6 @@
 obj-$(CONFIG_MSM_VIDC_V4L2) += vidc/
 obj-y += broadcast/
 obj-$(CONFIG_DVB_MPQ) += dvb/
-obj-$(CONFIG_LENOVO_DIR_CAMERA) += ../../../../../vendor/lenovo/camera/camera-driver/
+obj-$(CONFIG_LENOVO_DIR_CAMERA) += camera-lenovo/camera-driver/
 obj-$(CONFIG_QUALCOMM_DIR_CAMERA) += camera_v2/
 obj-y += sde/
