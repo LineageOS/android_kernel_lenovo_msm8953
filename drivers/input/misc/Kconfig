@@ -229,6 +229,18 @@ config INPUT_MPU3050
 	  To compile this driver as a module, choose M here: the
 	  module will be called mpu3050.
 
+# lenovo-sw caoyi1 add for sensor 20160222 begin
+config INPUT_EPL8802
+	tristate "EPL8802 proximity and light sensor"
+	depends on I2C
+	help
+	  Say Y here if you want to support EPL8802
+	  connected via an I2C bus.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called EPL8802.
+# lenovo-sw caoyi1 add for sensor 20160222 end
+
 config INPUT_APANEL
 	tristate "Fujitsu Lifebook Application Panel buttons"
 	depends on X86 && I2C && LEDS_CLASS
@@ -755,5 +767,11 @@ config INPUT_DRV2667_HAPTICS
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called drv260x-haptics.
+
+#lenovo-sw, chenzz3, integrate fingerprint driver, begin
+config SYNAPTICS_FINGERPRINT
+	tristate "SYNAPTICS FINGERPRINT SUPPORT"
+	default n
+#lenovo-sw, chenzz3, integrate fingerprint driver, end
 
 endif

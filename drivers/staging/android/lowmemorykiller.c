@@ -483,6 +483,21 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 			    tasksize <= selected_tasksize)
 				continue;
 		}
+#if 1
+		/*Lenovo wuzb1 add 2015-10-29 begin, workaround mediaprovider*/
+		if (!strcmp(p->comm, "d.process.media")
+			&& (oom_score_adj >= lowmem_adj[array_size - 2])
+			&& (min_score_adj >= lowmem_adj[array_size - 2])) {
+			lowmem_print(2, "select but ignore '%s' (%d)," \
+			    " oom_score_adj %d, size %d, to kill\n" \
+			    "cache %ldkB is below limit %ldkB",
+			    p->comm, p->pid, oom_score_adj, tasksize,
+			    other_file * (long)(PAGE_SIZE / 1024),
+			    minfree * (long)(PAGE_SIZE / 1024));
+			continue;
+		}
+		/*Lenovo wuzb1 add 2015-10-29 end, workaround meidaprovider*/
+#endif
 		selected = p;
 		selected_tasksize = tasksize;
 		selected_oom_score_adj = oom_score_adj;

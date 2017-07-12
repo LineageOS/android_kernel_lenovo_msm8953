@@ -463,11 +463,19 @@ static int enter_state(suspend_state_t state)
 	if (state == PM_SUSPEND_FREEZE)
 		freeze_begin();
 
+/* chenyb1 add to disable sys_sync in suspend begin
+ * to advoid super delay which block suspend and android WDT
+ * no need to do the sync in build-in battery phone, the mem won't be shutdown
+ * low speed emmc or external storage would trigger super delay
+ */
+#ifdef CONFIG_PM_SYNC_BEFORE_SUSPEND
 	trace_suspend_resume(TPS("sync_filesystems"), 0, true);
 	printk(KERN_INFO "PM: Syncing filesystems ... ");
 	sys_sync();
 	printk("done.\n");
 	trace_suspend_resume(TPS("sync_filesystems"), 0, false);
+#endif
+/* chenyb1 add to disable sys_sync in suspend end */
 
 	pr_debug("PM: Preparing system for %s sleep\n", pm_states[state]);
 	error = suspend_prepare(state);

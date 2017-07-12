@@ -11,5 +11,6 @@
 	soc { };
 	chosen { };
 	aliases { };
+	rkm_log { }; //lenovo sw, yexh1, add lastkmsg feature
 	memory { device_type = "memory"; reg = <0 0>; };
 };
