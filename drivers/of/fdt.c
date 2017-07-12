@@ -28,6 +28,10 @@
 #include <asm/setup.h>  /* for COMMAND_LINE_SIZE */
 #include <asm/page.h>
 
+//lenovo sw, yexh1, add lastkmsg feature
+#include <asm/le_rkm.h>
+//lenovo sw, yexh1, end
+
 /*
  * of_fdt_limit_memory - limit the number of regions in the /memory node
  * @limit: maximum entries
@@ -1057,6 +1061,12 @@ void __init early_init_dt_scan_nodes(void)
 {
 	/* Retrieve various information from the /chosen node */
 	of_scan_flat_dt(early_init_dt_scan_chosen, boot_command_line);
+//lenovo sw, yexh1, add lastkmsg feature
+#ifdef CONFIG_LENOVO_DEBUG_RKM
+	/* Retrieve various information from the /rkm_log node */
+	of_scan_flat_dt(early_init_dt_scan_boot_log,NULL);
+#endif
+//lenovo sw, yexh1, end
 
 	/* Initialize {size,address}-cells info */
 	of_scan_flat_dt(early_init_dt_scan_root, NULL);

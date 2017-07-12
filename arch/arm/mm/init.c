@@ -38,6 +38,10 @@
 
 #include "mm.h"
 
+//lenovo sw, yexh1, add lastkmsg feature
+#include <asm/le_rkm.h>
+//lenovo sw, yexh1, end
+
 #ifdef CONFIG_CPU_CP15_MMU
 unsigned long __init __clear_cr(unsigned long mask)
 {
@@ -326,6 +330,11 @@ void __init arm_memblock_init(const struct machine_desc *mdesc)
 	dma_contiguous_reserve(arm_dma_limit);
 
 	arm_memblock_steal_permitted = false;
+//lenovo sw, yexh1, add lastkmsg feature
+#ifdef CONFIG_LENOVO_DEBUG_RKM
+	arm64_rkm_log_backup();
+#endif
+//lenovo sw, yexh1, end
 	memblock_dump_all();
 }
 

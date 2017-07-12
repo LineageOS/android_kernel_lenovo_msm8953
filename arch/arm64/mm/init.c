@@ -43,6 +43,10 @@
 
 #include "mm.h"
 
+//lenovo sw, yexh1, add lastkmsg feature
+#include <asm/le_rkm.h>
+//lenovo sw, yexh1, end
+
 phys_addr_t memstart_addr __read_mostly = 0;
 
 #ifdef CONFIG_BLK_DEV_INITRD
@@ -160,6 +164,11 @@ void __init arm64_memblock_init(void)
 	dma_contiguous_reserve(dma_phys_limit);
 
 	memblock_allow_resize();
+//lenovo sw, yexh1, add lastkmsg feature
+#ifdef CONFIG_LENOVO_DEBUG_RKM
+	arm64_rkm_log_backup();
+#endif
+//lenovo sw, yexh1, end
 	memblock_dump_all();
 }
 
