@@ -49,7 +49,7 @@ menuconfig QUALCOMM_DIR_CAMERA
 	bool "Qualcomm MSM camera directory support"
 	depends on MSMB_CAMERA
 	---help---
-	  Say Y here to enable selecting the vendor lenovo camera driver
+	  Say Y here to enable selecting the qualcomm camera driver
 	  directory to compile into the kernel.
 
 config CAMERA_WT_FACTORY_SUPPORTED
@@ -65,7 +65,7 @@ config MSMB_CAMERA_DEBUG
 	  Enable printk() debug for msm camera 2.0
 
 if LENOVO_DIR_CAMERA
-source "../vendor/lenovo/camera/camera-driver/Kconfig"
+source "drivers/media/platform/msm/camera_v2_lenovo/Kconfig"
 endif # LENOVO_DIR_CAMERA
 if QUALCOMM_DIR_CAMERA
 source "drivers/media/platform/msm/camera_v2/Kconfig"
