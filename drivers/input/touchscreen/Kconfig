@@ -13,6 +13,7 @@ if INPUT_TOUCHSCREEN
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 source "drivers/input/touchscreen/synaptics_dsx_2.6/Kconfig"
+source "drivers/input/touchscreen/synaptics_dsx_lenovo/Kconfig"
 
 config OF_TOUCHSCREEN
 	def_tristate INPUT
@@ -1136,5 +1137,6 @@ config TOUCHSCREEN_MAXIM_STI
 	  module will be called maxim_sti.
 
 source "drivers/input/touchscreen/gt9xx/Kconfig"
+source "drivers/input/touchscreen/tpd_property/Kconfig"
 
 endif
