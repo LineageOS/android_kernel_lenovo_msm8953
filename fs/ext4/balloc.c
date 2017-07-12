@@ -555,7 +555,13 @@ static int ext4_has_free_clusters(struct ext4_sb_info *sbi,
 		return 1;
 
 	/* Hm, nope.  Are (enough) root reserved clusters available? */
+	/*lenovo-sw jixj 2015.3.25 modified begin*/
+	#if 0
 	if (uid_eq(sbi->s_resuid, current_fsuid()) ||
+	#else
+	if (uid_gte(sbi->s_resuid, current_fsuid()) ||
+	#endif
+	/*lenovo-sw jixj 2015.3.25 modified end*/
 	    (!gid_eq(sbi->s_resgid, GLOBAL_ROOT_GID) && in_group_p(sbi->s_resgid)) ||
 	    capable(CAP_SYS_RESOURCE) ||
 	    (flags & EXT4_MB_USE_ROOT_BLOCKS)) {
