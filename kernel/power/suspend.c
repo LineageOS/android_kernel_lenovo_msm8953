@@ -271,6 +271,13 @@ void __weak arch_suspend_enable_irqs(void)
  *
  * This function should be called after devices have been suspended.
  */
+/*lenovo.sw begin chenyb1, 20130516, Add for sysfs tlmm_before_sleep */
+#ifdef CONFIG_LENOVO_PM_LOG
+extern void vreg_before_sleep_save_configs(void);
+extern void tlmm_before_sleep_set_configs(void);
+extern void tlmm_before_sleep_save_configs(void);
+#endif//#ifdef CONFIG_LENOVO_PM_LOG
+/*lenovo.sw end chenyb1, 20130516, Add for sysfs tlmm_before_sleep */
 static int suspend_enter(suspend_state_t state, bool *wakeup)
 {
 	char suspend_abort[MAX_SUSPEND_ABORT_LEN];
@@ -321,6 +328,16 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		trace_suspend_resume(TPS("machine_suspend"), state, false);
 		goto Platform_wake;
 	}
+
+	/*lenovo.sw begin chenyb1, 20130516, Add for sysfs tlmm_before_sleep. */
+#ifdef CONFIG_LENOVO_PM_LOG
+	vreg_before_sleep_save_configs();
+#if 1 //TBD
+	tlmm_before_sleep_set_configs();
+	tlmm_before_sleep_save_configs();
+#endif
+#endif//#ifdef CONFIG_LENOVO_PM_LOG
+	/*lenovo.sw end chenyb1, 20130516, Add for sysfs tlmm_before_sleep.  */
 
 	error = disable_nonboot_cpus();
 	if (error || suspend_test(TEST_CPUS)) {
@@ -463,11 +480,19 @@ static int enter_state(suspend_state_t state)
 	if (state == PM_SUSPEND_FREEZE)
 		freeze_begin();
 
+/* chenyb1 add to disable sys_sync in suspend begin
+ * to advoid super delay which block suspend and android WDT
+ * no need to do the sync in build-in battery phone, the mem won't be shutdown
+ * low speed emmc or external storage would trigger super delay
+ */
+#ifdef CONFIG_PM_SYNC_BEFORE_SUSPEND
 	trace_suspend_resume(TPS("sync_filesystems"), 0, true);
 	printk(KERN_INFO "PM: Syncing filesystems ... ");
 	sys_sync();
 	printk("done.\n");
 	trace_suspend_resume(TPS("sync_filesystems"), 0, false);
+#endif
+/* chenyb1 add to disable sys_sync in suspend end */
 
 	pr_debug("PM: Preparing system for %s sleep\n", pm_states[state]);
 	error = suspend_prepare(state);
@@ -510,6 +535,12 @@ static void pm_suspend_marker(char *annotation)
  * Check if the value of @state represents one of the supported states,
  * execute enter_state() and update system suspend statistics.
  */
+/* chenyb1, 20130524, Add sleeplog, START */
+#ifdef CONFIG_LENOVO_PM_LOG
+extern void log_suspend_enter(void);
+extern void log_suspend_exit(int error);
+#endif //#ifdef CONFIG_LENOVO_PM_LOG
+/* chenyb1, 20130524, Add sleeplog, END */
 int pm_suspend(suspend_state_t state)
 {
 	int error;
@@ -518,6 +549,11 @@ int pm_suspend(suspend_state_t state)
 		return -EINVAL;
 
 	pm_suspend_marker("entry");
+	/* chenyb1, 20130524, Add sleeplog START*/
+#ifdef CONFIG_LENOVO_PM_LOG
+	log_suspend_enter();
+#endif
+	/* chenyb1, 20130524, Add sleeplog END*/
 	error = enter_state(state);
 	if (error) {
 		suspend_stats.fail++;
@@ -525,6 +561,11 @@ int pm_suspend(suspend_state_t state)
 	} else {
 		suspend_stats.success++;
 	}
+	/* chenyb1, 20130524, Add sleeplog START*/
+#ifdef CONFIG_LENOVO_PM_LOG
+	log_suspend_exit(error);
+#endif //#ifdef CONFIG_LENOVO_PM_LOG
+	/* chenyb1, 20130524, Add sleeplog END*/
 	pm_suspend_marker("exit");
 	return error;
 }

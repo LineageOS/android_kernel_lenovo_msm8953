@@ -407,6 +407,11 @@ static const struct irq_domain_ops smp2p_irq_domain_ops = {
 static void msm_summary_irq_handler(struct smp2p_chip_dev *chip,
 	struct msm_smp2p_update_notif *entry)
 {
+	//chenyb1, 20130619, Add log to show gpio wakeup interrupts begin
+	#ifdef CONFIG_LENOVO_PM_LOG
+	extern int save_irq_wakeup_gpio(int irq, int gpio);
+	#endif //#ifdef CONFIG_LENOVO_PM_LOG
+	//chenyb1, 20130619, Add log to show gpio wakeup interrupts end
 	int i;
 	uint32_t cur_val;
 	uint32_t prev_val;
@@ -458,6 +463,11 @@ static void msm_summary_irq_handler(struct smp2p_chip_dev *chip,
 				edge_name_rising[irq_rising],
 				edge_name_falling[irq_falling],
 				edge_names[edge]);
+			//chenyb1, 20130619, Add log to show gpio wakeup interrupts begin
+			#ifdef CONFIG_LENOVO_PM_LOG
+			save_irq_wakeup_gpio(chip->irq_base + i, i);
+			#endif //#ifdef CONFIG_LENOVO_PM_LOG
+			//chenyb1, 20130619, Add log to show gpio wakeup interrupts end
 			(void)generic_handle_irq(chip->irq_base + i);
 		}
 

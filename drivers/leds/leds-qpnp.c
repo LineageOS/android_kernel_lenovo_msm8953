@@ -3078,6 +3078,7 @@ static int qpnp_get_common_configs(struct qpnp_led_data *led,
 	int rc;
 	u32 val;
 	const char *temp_string;
+	bool factory_alway_on = false;
 
 	led->cdev.default_trigger = LED_TRIGGER_DEFAULT;
 	rc = of_property_read_string(node, "linux,default-trigger",
@@ -3095,6 +3096,21 @@ static int qpnp_get_common_configs(struct qpnp_led_data *led,
 			led->default_on = true;
 	} else if (rc != -EINVAL)
 		return rc;
+
+	factory_alway_on = of_property_read_bool(node, "lenovo,factory-alway-on");
+	if(factory_alway_on){
+		struct device_node *np;
+		bool bare_board = false;
+		bool factory_cable = false;
+
+		np = of_find_node_by_path("/chosen");
+		bare_board = of_property_read_bool(np, "mmi,bare_board");
+		factory_cable = of_property_read_bool(np, "mmi,factory-cable");
+		if(bare_board && factory_cable){
+			led->default_on = true;
+			dev_err(&led->spmi_dev->dev, "factory-cable and bare_board,so the led is turn on\n");
+		}
+	}
 
 	led->turn_off_delay_ms = 0;
 	rc = of_property_read_u32(node, "qcom,turn-off-delay-ms", &val);

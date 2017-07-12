@@ -1364,6 +1364,38 @@ done:
 	return ret;
 }
 
+/* lenovo-sw zhouwl, 2014-05-27, add for control afe port begin */
+int msm8x16_quin_mi2s_clocks(bool enable)
+{
+	union afe_port_config port_config;
+	u16 port_id = AFE_PORT_ID_QUINARY_MI2S_RX;
+	int rc = 0;
+
+	if(enable) {
+		port_config.i2s.channel_mode = AFE_PORT_I2S_SD0;
+		port_config.i2s.mono_stereo = MSM_AFE_CH_STEREO;
+		port_config.i2s.bit_width = 16;
+		port_config.i2s.i2s_cfg_minor_version = AFE_API_VERSION_I2S_CONFIG;
+		port_config.i2s.sample_rate = 48000;
+		port_config.i2s.ws_src = 1;
+     	         port_config.i2s.data_format = 0;
+		port_config.i2s.reserved =0;
+		rc = afe_port_start(port_id, &port_config, 48000);
+		if (IS_ERR_VALUE(rc)) {
+			pr_info("fail to open AFE port\n");
+			return -EINVAL;
+		}
+	} else {
+		rc = afe_close(port_id);
+		if (IS_ERR_VALUE(rc)) {
+			pr_info("fail to close AFE port\n");
+			return -EINVAL;
+		}
+	}
+	return rc;
+}
+/* lenovo-sw zhouwl, 2014-05-27, add for control afe port end */
+
 static void send_afe_cal_type(int cal_index, int port_id)
 {
 	struct cal_block_data		*cal_block = NULL;
@@ -2570,7 +2602,9 @@ void afe_set_cal_mode(u16 port_id, enum afe_cal_mode afe_cal_mode)
 	port_index = afe_get_port_index(port_id);
 	this_afe.afe_cal_mode[port_index] = afe_cal_mode;
 }
-
+/* lenovo-sw zhanrc2, 2014-11-25,add for quat mi2s control */
+extern atomic_t quin_mi2s_clk_ref;
+/* lenovo-sw zhangrc2, 2014-11-25,add for quat mi2s control */
 int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	u32 rate) /* This function is no blocking */
 {
@@ -2586,7 +2620,17 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		ret = -EINVAL;
 		return ret;
 	}
-
+       /* lenovo-sw zhanrc2, 2014-11-25,add for quat mi2s control */
+        if ((port_id == AFE_PORT_ID_QUINARY_MI2S_RX) &&(atomic_read(&quin_mi2s_clk_ref)  >= 1)) {	
+                  return 0;
+		pr_info("%s:  i2s_cfg_minor_version is %d, bit_width is %d,channel_mode is %d" \
+			     "mono_stereo is %d, ws_src is %d,sample_rate is %d,data_format is %d" \
+			    "reserved is %d\n",__func__,afe_config->i2s.i2s_cfg_minor_version,afe_config->i2s.bit_width,
+			     afe_config->i2s.channel_mode, afe_config->i2s.mono_stereo, afe_config->i2s.ws_src,
+			     afe_config->i2s.sample_rate,afe_config->i2s.data_format,afe_config->i2s.reserved);
+			     
+	}		
+       /* lenovo-sw zhanrc2, 2014-11-25,add for quat mi2s control */
 	if ((port_id == RT_PROXY_DAI_001_RX) ||
 		(port_id == RT_PROXY_DAI_002_TX)) {
 		pr_debug("%s: before incrementing pcm_afe_instance %d"\

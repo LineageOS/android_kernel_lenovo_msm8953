@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  *
  */
-
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -211,6 +210,9 @@ struct dwc3_msm {
 	enum usb_otg_state	otg_state;
 	enum usb_chg_state	chg_state;
 	int			pmic_id_irq;
+//yexh1, add for usb otg id pin interrupt
+	int 			usb_id_gpio;
+//yexh1, end
 	struct work_struct	bus_vote_w;
 	unsigned int		bus_vote;
 	u32			bus_perf_client;
@@ -243,6 +245,12 @@ struct dwc3_msm {
 	unsigned int		lpm_to_suspend_delay;
 	bool			init;
 };
+
+//yexh1, add for usb id detection tcmd
+static bool host_mode_disable;
+static bool host_id_state;
+static struct dwc3_msm *the_msm_dwc3;
+//yexh1, add end
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
 #define USB_HSPHY_3P3_VOL_MAX		3300000 /* uV */
@@ -746,7 +754,6 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRLO(0)),
 		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRHI(0)),
 		DWC3_GEVNTSIZ_SIZE(size));
-
 	ret = __dwc3_msm_ep_queue(dep, req);
 	if (ret < 0) {
 		dev_err(mdwc->dev,
@@ -1909,8 +1916,9 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 			break;
 	}
 
-	if (!(reg & PWR_EVNT_LPM_IN_L2_MASK)) {
+	if (!(reg & PWR_EVNT_LPM_IN_L2_MASK))
 		dev_err(mdwc->dev, "could not transition HS PHY to L2\n");
+
 		dbg_event(0xFF, "PWR_EVNT_LPM",
 			dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG));
 		dbg_event(0xFF, "QUSB_STS",
@@ -1922,7 +1930,6 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 					&mdwc->resume_work, 0);
 			return -EBUSY;
 		}
-	}
 
 	/* Clear L2 event bit */
 	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
@@ -2087,10 +2094,13 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 				|| mdwc->in_host_mode) {
 		enable_irq_wake(mdwc->hs_phy_irq);
 		enable_irq(mdwc->hs_phy_irq);
-		if (mdwc->ss_phy_irq) {
+//lenovo sw yexh1, mask the ss phy irq trigger the system wakeup, which is not used
+/*		if (mdwc->ss_phy_irq) {
 			enable_irq_wake(mdwc->ss_phy_irq);
 			enable_irq(mdwc->ss_phy_irq);
-		}
+		}*/
+//lenovo sw yexh1, end
+
 		mdwc->lpm_flags |= MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
 	}
 
@@ -2575,6 +2585,9 @@ dwc3_msm_property_is_writeable(struct power_supply *psy,
 static char *dwc3_msm_pm_power_supplied_to[] = {
 	"battery",
 	"bms",
+/*lenovo-sw weiweij added for ext charger psy*/
+	"ext-charger",
+/*lenovo-sw weiweij added for ext charger psy end*/
 };
 
 static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
@@ -2588,6 +2601,121 @@ static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_USB_OTG,
 };
 
+//yexh1, add for usb id detection tcmd
+static int msm_otg_enable_gpio_pull(struct dwc3_msm *dwc3, int enable)
+{
+	int err = 0;
+	/* pin ctl */
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *gpio_state;
+
+	if (!dwc3 || !dwc3->usb_id_gpio)
+		return 0;
+
+    	pinctrl = devm_pinctrl_get(dwc3->dev);
+	if (IS_ERR_OR_NULL(pinctrl)) {
+		pr_err("%s:Getting pinctrl handle failed \r\n", __func__);
+		return -EINVAL;
+	}
+
+	if (enable)
+		gpio_state = pinctrl_lookup_state(pinctrl, "usbid_default");
+	else
+		gpio_state = pinctrl_lookup_state(pinctrl, "usbid_deactive");
+	
+	if (pinctrl && gpio_state) {
+		err = pinctrl_select_state(pinctrl, gpio_state);
+		if (err) {
+			pr_err("%s:pinctrl usb id state, err = %d\r\n", __func__, err);
+			return -EINVAL;
+		}
+	}
+	return 1;
+}
+static int msm_otg_enable_ext_id(struct dwc3_msm *dwc3, int enable)
+{
+	int res;
+	int irq;
+	if (!dwc3->usb_id_gpio)
+		return -ENODEV;
+	/* usb_id_gpio to irq */
+	irq = gpio_to_irq(dwc3->usb_id_gpio);	
+
+	if (enable) {
+		res = msm_otg_enable_gpio_pull(dwc3, 1);
+		msleep(100);
+		enable_irq(irq);
+	} else {
+		disable_irq(irq);
+		msleep(50);
+		res = msm_otg_enable_gpio_pull(dwc3, 0);
+	}
+	return res;
+}
+
+static int set_host_mode_disable(const char *val, const struct kernel_param *kp)
+{
+	int res;
+	int rv = param_set_bool(val, kp);
+	struct dwc3_msm *dwc3 = the_msm_dwc3;
+
+	if (!dwc3 || !dwc3->usb_id_gpio)
+		return 0;
+
+	if (host_mode_disable)
+		res = msm_otg_enable_ext_id(dwc3, 0);
+	else
+		res = msm_otg_enable_ext_id(dwc3, 1);
+
+	if (res) {
+		pr_err("%s:host_mode_disable:%d fail \n", __func__, host_mode_disable);
+	}
+
+	return rv;
+}
+
+static struct kernel_param_ops host_mode_disable_param_ops = {
+	.set = set_host_mode_disable,
+	.get = param_get_bool,
+};
+
+module_param_cb(host_mode_disable, &host_mode_disable_param_ops,
+			&host_mode_disable, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(host_mode_disable, "Whether to disable Host Mode");
+
+static int get_host_id_state(char *val, const struct kernel_param *kp)
+{
+	struct dwc3_msm *dwc3 = the_msm_dwc3;
+	enum dwc3_id_state id;
+
+	if (!dwc3 || !dwc3->usb_id_gpio)
+		return 0;
+
+	if (gpio_is_valid(dwc3->usb_id_gpio)) {
+		id = gpio_get_value(dwc3->usb_id_gpio);
+	}
+
+	if (id == DWC3_ID_FLOAT) {
+		host_id_state = true;
+	} else {
+		host_id_state = false;
+	}
+
+	return param_get_int(val, kp);
+}
+
+static struct kernel_param_ops host_id_state_param_ops = {
+	.set = param_set_int,
+	.get = get_host_id_state,
+};
+
+module_param_cb(host_id_state, &host_id_state_param_ops, 
+			&host_id_state, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(host_id_state, "Get the USB ID pin state");
+
+//yexh1, end
+
+
 static irqreturn_t dwc3_pmic_id_irq(int irq, void *data)
 {
 	struct dwc3_msm *mdwc = data;
@@ -2595,6 +2723,12 @@ static irqreturn_t dwc3_pmic_id_irq(int irq, void *data)
 
 	/* If we can't read ID line state for some reason, treat it as float */
 	id = !!irq_read_line(irq);
+//yexh1, add for usb otg id pin interrupt
+	if (gpio_is_valid(mdwc->usb_id_gpio)) {
+		id = gpio_get_value(mdwc->usb_id_gpio);
+		pr_err("%s: USB ID %d\n", __func__, id);
+	}
+//yexh1, end
 	if (mdwc->id_state != id) {
 		mdwc->id_state = id;
 		schedule_work(&mdwc->resume_work.work);
@@ -2725,9 +2859,22 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	int ext_hub_reset_gpio;
 	u32 val;
 
+//lenovo sw, yexh1, fix usb cannot connect after boot with usb cable
+	msleep(600);
+//lenovo sw, yexh1, end
+
 	mdwc = devm_kzalloc(&pdev->dev, sizeof(*mdwc), GFP_KERNEL);
 	if (!mdwc)
 		return -ENOMEM;
+
+	if (of_get_property(pdev->dev.of_node, "qcom,usb-dbm", NULL)) {
+		mdwc->dbm = usb_get_dbm_by_phandle(&pdev->dev, "qcom,usb-dbm");
+		if (IS_ERR(mdwc->dbm)) {
+			dev_err(&pdev->dev, "unable to get dbm device\n");
+			ret = -EPROBE_DEFER;
+			goto err_dbm;
+		}
+	}
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
 		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
@@ -2771,6 +2918,17 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "setting lpm_to_suspend_delay to zero.\n");
 		mdwc->lpm_to_suspend_delay = 0;
 	}
+//yexh1, add for usb otg id pin interrupt
+	mdwc->usb_id_gpio =
+			of_get_named_gpio(node, "qcom,usbid-gpio", 0);
+	if (mdwc->usb_id_gpio < 0)
+		pr_err("usb_id_gpio is not available\n");
+//yexh1, end
+
+//yexh1, add for usb id detection tcmd
+	the_msm_dwc3 = mdwc;
+	msm_otg_enable_gpio_pull(mdwc, 1);
+//yexh1, add end
 
 	/*
 	 * DWC3 has separate IRQ line for OTG events (ID/BSV) and for
@@ -2837,8 +2995,21 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			goto err;
 		}
 	}
-
-	mdwc->pmic_id_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
+//yexh1, add for usb otg id pin interrupt
+	if (gpio_is_valid(mdwc->usb_id_gpio)) {
+		/* usb_id_gpio request */
+		ret = gpio_request(mdwc->usb_id_gpio, "USB_ID_GPIO");
+		pr_err("%s: USB ID pin %d with ret %d \n", __func__, mdwc->usb_id_gpio,ret);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "gpio req failed for id\n");
+			mdwc->usb_id_gpio = 0;
+			goto err;
+		}
+		/* usb_id_gpio to irq */
+		mdwc->pmic_id_irq = gpio_to_irq(mdwc->usb_id_gpio);
+	}else
+//yexh1, end
+		mdwc->pmic_id_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
 	if (mdwc->pmic_id_irq > 0) {
 		irq_set_status_flags(mdwc->pmic_id_irq, IRQ_NOAUTOEN);
 		ret = devm_request_irq(&pdev->dev,
@@ -2921,13 +3092,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (of_get_property(pdev->dev.of_node, "qcom,usb-dbm", NULL)) {
-		mdwc->dbm = usb_get_dbm_by_phandle(&pdev->dev, "qcom,usb-dbm");
-		if (IS_ERR(mdwc->dbm)) {
-			dev_err(&pdev->dev, "unable to get dbm device\n");
-			ret = -EPROBE_DEFER;
-			goto err;
-		}
+	if (mdwc->dbm) {
 		/*
 		 * Add power event if the dbm indicates coming out of L1
 		 * by interrupt
@@ -3069,6 +3234,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		enable_irq(mdwc->pmic_id_irq);
 		local_irq_save(flags);
 		mdwc->id_state = !!irq_read_line(mdwc->pmic_id_irq);
+//yexh1, add for usb otg id pin interrupt
+		if (gpio_is_valid(mdwc->usb_id_gpio)) {
+			mdwc->id_state = gpio_get_value(mdwc->usb_id_gpio);;
+			pr_err("%s: USB ID pin init state %d \n", __func__ ,mdwc->id_state);
+		}
+//yexh1, end
 		if (mdwc->id_state == DWC3_ID_GROUND)
 			dwc3_ext_event_notify(mdwc);
 		local_irq_restore(flags);
@@ -3091,6 +3262,9 @@ put_psupply:
 	if (mdwc->usb_psy.dev)
 		power_supply_unregister(&mdwc->usb_psy);
 err:
+	return ret;
+err_dbm:
+	devm_kfree(&pdev->dev, mdwc);
 	return ret;
 }
 
@@ -3522,7 +3696,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	}
 
 	state = usb_otg_state_string(mdwc->otg_state);
-	dev_dbg(mdwc->dev, "%s state\n", state);
+	dev_info(mdwc->dev, "%s state\n", state);
 	dbg_event(0xFF, state, 0);
 
 	/* Check OTG state */

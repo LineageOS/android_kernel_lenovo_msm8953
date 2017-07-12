@@ -463,7 +463,11 @@ static ssize_t autosleep_store(struct kobject *kobj,
 {
 	suspend_state_t state = decode_state(buf, n);
 	int error;
-
+//chenyb1, 20140113, Add to show sleep enter state, START
+#ifdef CONFIG_LENOVO_PM_LOG
+	printk("%s(), state=%d, buf=%s, n=%d\n", __func__, state, buf,(int)n);
+#endif //CONFIG_LENOVO_PM_LOG
+//chenyb1, 20140113, Add to show sleep enter state, END
 	if (state == PM_SUSPEND_ON
 	    && strcmp(buf, "off") && strcmp(buf, "off\n"))
 		return -EINVAL;
