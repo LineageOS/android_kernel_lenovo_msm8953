@@ -606,6 +606,10 @@ static int __qpnpint_handle_irq(struct spmi_controller *spmi_ctrl,
 		       struct qpnp_irq_spec *spec,
 		       bool show)
 {
+	//chenyb1, 20130619, Add log to show wakeup interrupts begin
+	#ifdef CONFIG_LENOVO_PM_LOG
+	extern int save_irq_wakeup_gpio(int irq, int gpio);
+	#endif //#ifdef CONFIG_LENOVO_PM_LOG
 	struct irq_domain *domain;
 	unsigned long hwirq, busno;
 	int irq;
@@ -641,6 +645,11 @@ static int __qpnpint_handle_irq(struct spmi_controller *spmi_ctrl,
 
 		pr_warn("%d triggered [0x%01x, 0x%02x,0x%01x] %s\n",
 				irq, spec->slave, spec->per, spec->irq, name);
+		//chenyb1, 20130619, Add log to show wakeup interrupts begin
+		#ifdef CONFIG_LENOVO_PM_LOG
+		save_irq_wakeup_gpio(irq, 0);
+		#endif //#ifdef CONFIG_LENOVO_PM_LOG
+		//chenyb1, 20130619, Add log to show wakeup interrupts end
 	} else {
 		generic_handle_irq(irq);
 	}

@@ -125,7 +125,11 @@ int qpnpint_show_irq(struct spmi_controller *spmi_ctrl,
 
 static inline bool qpnpint_show_resume_irq(void)
 {
+	#ifdef CONFIG_LENOVO_PM_LOG
+	return true;
+	#else
 	return false;
+	#endif
 }
 #endif /* CONFIG_MSM_QPNP_INT */
 #endif /* QPNPINT_H */

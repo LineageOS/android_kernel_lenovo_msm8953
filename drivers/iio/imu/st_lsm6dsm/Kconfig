@@ -1,0 +1,60 @@
+#
+# st-lsm6dsm drivers for STMicroelectronics combo sensor
+#
+
+menuconfig ST_LSM6DSM_IIO
+	tristate "STMicroelectronics LSM6DSM sensor"
+	depends on (I2C || SPI) && SYSFS
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	select ST_LSM6DSM_I2C_IIO if (I2C)
+	select ST_LSM6DSM_SPI_IIO if (SPI)
+	help
+	  This driver supports the STMicroelectronics LSM6DSM sensor.
+	  It is a gyroscope/accelerometer combo device.
+	  This driver can be built as a module. The module will be called
+	  st-lsm6dsm.
+
+if ST_LSM6DSM_IIO
+
+config ST_LSM6DSM_I2C_IIO
+	tristate
+	depends on ST_LSM6DSM_IIO
+	depends on I2C
+
+config ST_LSM6DSM_SPI_IIO
+	tristate
+	depends on ST_LSM6DSM_IIO
+	depends on SPI
+
+config ST_LSM6DSM_IIO_LIMIT_FIFO
+	int "Limit fifo read lenght (#n byte)"
+	depends on ST_LSM6DSM_IIO
+	range 0 4096
+	default 0
+	help
+	  Limit atomic fifo read to #n byte. In some platform i2c/spi read
+	  can be limited by software or hardware.
+
+	  Set 0 to disable the limit.
+
+config ST_LSM6DSM_IIO_SENSORS_WAKEUP
+	bool "All sensors can wake-up system during suspend"
+	depends on ST_LSM6DSM_IIO
+	default n
+	help
+	  If disabled only tilt and significant motion can wake-up system
+	  during suspend.
+
+	  If enabled all sensors can wake-up system during suspend.
+
+config ST_LSM6DSM_XL_DATA_INJECTION
+	bool "Enable XL data injection support"
+	depends on ST_LSM6DSM_IIO
+	default n
+	help
+	  This option enables the accelerometer data injection
+	  support. The device functions may so use an injected
+	  pattern instead of taking the real sensor data.
+
+endif #ST_LSM6DSM_IIO

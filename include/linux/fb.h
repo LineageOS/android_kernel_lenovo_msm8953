@@ -162,7 +162,9 @@ struct fb_cursor_user {
 #define FB_EARLY_EVENT_BLANK		0x10
 /*      A hardware display blank revert early change occured */
 #define FB_R_EARLY_EVENT_BLANK		0x11
-
+/*lenovo-sw wengjun1 add for event blank 20160315 begin*/
+#define FB_IN_PROGRESS_EVENT_BLANK	0x12
+/*lenovo-sw wengjun1 add for event blank 20160315 end*/
 struct fb_event {
 	struct fb_info *info;
 	void *data;
