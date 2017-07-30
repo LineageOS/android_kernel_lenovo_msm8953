@@ -223,6 +223,30 @@ static struct cpu_clk_8953 a53_perf_clk;
 static struct cpu_clk_8953 cci_clk;
 static void do_nothing(void *unused) { }
 
+//chenyb1, 20140922, Add to show AP's clock rate in /sys/private/pm_status, START
+#ifdef CONFIG_LENOVO_PM_LOG
+unsigned long acpu_clk_get_rate(int cpu)
+{
+	unsigned long cur_rate;
+	struct clk *c;
+	
+	if (cpu/4)
+	{
+		//Perf
+		c = &(a53_perf_clk.c);
+	}
+	else
+	{
+		//power
+		c = &(a53_pwr_clk.c);
+	}
+
+	cur_rate = clk_get_rate(c->parent);
+	return cur_rate;
+}
+#endif //#ifdef CONFIG_LENOVO_PM_LOG
+//chenyb1, 20140922, Add to show AP's clock rate in /sys/private/pm_status, END
+
 static inline struct cpu_clk_8953 *to_cpu_clk_8953(struct clk *c)
 {
 	return container_of(c, struct cpu_clk_8953, c);

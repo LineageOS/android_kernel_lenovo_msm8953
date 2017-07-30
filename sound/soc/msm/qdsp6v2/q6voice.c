@@ -1122,6 +1122,7 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 					 msecs_to_jiffies(TIMEOUT_MS));
 			if (!ret) {
 				pr_err("%s: wait_event timeout\n", __func__);
+
 				goto fail;
 			}
 			if (v->async_err > 0) {
@@ -4644,9 +4645,9 @@ static int voice_send_cvs_packet_exchange_config_cmd(struct voice_data *v)
 	ret = wait_event_timeout(v->cvs_wait,
 				 (v->cvs_state == CMD_STATUS_SUCCESS),
 				 msecs_to_jiffies(TIMEOUT_MS));
-	if (!ret)
+	if (!ret) {
 		pr_err("%s: wait_event timeout %d\n", __func__, ret);
-
+	}
 	if (v->async_err > 0) {
 		pr_err("%s: DSP returned error[%s]\n",
 				__func__, adsp_err_get_err_str(
@@ -4703,9 +4704,9 @@ static int voice_send_cvs_data_exchange_mode_cmd(struct voice_data *v)
 	ret = wait_event_timeout(v->cvs_wait,
 				 (v->cvs_state == CMD_STATUS_SUCCESS),
 				 msecs_to_jiffies(TIMEOUT_MS));
-	if (!ret)
+	if (!ret) {
 		pr_err("%s: wait_event timeout %d\n", __func__, ret);
-
+	}
 	if (v->async_err > 0) {
 		pr_err("%s: DSP returned error[%s]\n",
 				__func__, adsp_err_get_err_str(

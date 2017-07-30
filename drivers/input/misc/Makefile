@@ -46,6 +46,9 @@ obj-$(CONFIG_INPUT_MAX8997_HAPTIC)	+= max8997_haptic.o
 obj-$(CONFIG_INPUT_MC13783_PWRBUTTON)	+= mc13783-pwrbutton.o
 obj-$(CONFIG_INPUT_MMA8450)		+= mma8450.o
 obj-$(CONFIG_INPUT_MPU3050)		+= mpu3050.o
+# lenovo-sw caoyi1 add for sensor 20160222 begin 
+obj-$(CONFIG_INPUT_EPL8802)		+= epl8802.o
+# lenovo-sw caoyi1 add for sensor 20160222 end 
 obj-$(CONFIG_INPUT_PALMAS_PWRBUTTON)	+= palmas-pwrbutton.o
 obj-$(CONFIG_INPUT_PCAP)		+= pcap_keys.o
 obj-$(CONFIG_INPUT_PCF50633_PMU)	+= pcf50633-input.o
@@ -71,3 +74,6 @@ obj-$(CONFIG_INPUT_WM831X_ON)		+= wm831x-on.o
 obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
 obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_INPUT_IDEAPAD_SLIDEBAR)	+= ideapad_slidebar.o
+# lenovo-sw, chenzz3, integrate fingerprint driver, begin
+obj-$(CONFIG_SYNAPTICS_FINGERPRINT) += vfsSpiDrv.o
+# lenovo-sw, chenzz3, integrate fingerprint driver, end

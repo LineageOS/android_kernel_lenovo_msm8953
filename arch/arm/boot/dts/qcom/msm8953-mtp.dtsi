@@ -10,10 +10,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include "msm8953-pinctrl.dtsi"
 #include "msm8953-audio-mtp.dtsi"
-#include "msm8953-camera-sensor-mtp.dtsi"
+/*lenovo-sw zhangjiano add camera dtsi 2016-03-28*/
+#include "msm8953-camera-sensor-kuntao.dtsi"
 
 &spi_3 { /* BLSP1 QUP3 */
 	spi-max-frequency = <16000000>;
@@ -38,9 +38,61 @@
 		pinctrl-2 = <&ts_release>;
 	};
 };
+/* lenovo-sw zhangrc2 config for smartpa begin 2016-3-7 */
+&i2c_2 {
+    nxp_tfa9887@4c {
+		compatible = "ti,tas2555";
+		reg = <0x4c>;
+        ti,reset-gpio = <&tlmm 94 0>;
+
+		};
+};
+/* lenovo-sw zhangrc2 config for smartpa end 2016-3-7 */
+&i2c_3 { /* BLSP1 QUP3 */
+	synaptics@20 {
+			compatible = "synaptics,synaptics_dsx_i2c";
+			reg = <0x20>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <65 0x2008>;
+			gpios = <&tlmm 65 0x2008>, /* IRQ */
+				<&tlmm 64 0>; /* RESET */
+			synaptics,gpio-config;
+			pinctrl-names = "default", "active";
+			pinctrl-0 = <&touch_reset_active &touch_int_default>;
+			pinctrl-1 = <&touch_reset_active &touch_int_active>;
+	};
+};
+
+/*lenovo-sw caoyi1 add for sensor 20160328 begin*/
+&i2c_4 {
+	elan@49 {
+		compatible = "epl,epl8802";
+		reg = <0x49>;
+		epl,irq-gpio = <&tlmm 43 0x08>;
+		vdd-supply = <&pm8953_l22>;
+		i2c_l6-supply = <&pm8953_l6>;
+		pinctrl-names = "epl8802_default", "epl8802_suspend";
+		pinctrl-0 = <&epl8802_active>;
+		pinctrl-1 = <&epl8802_suspend>;
+	};
+
+	lsm6ds3@6a {
+		compatible = "st,lsm6ds3";
+		reg = <0x6a>;
+		msensor-gpio = <&tlmm 44 0x0>;
+		pinctrl-names = "msensor_reset_on", "msensor_reset_off";
+		pinctrl-0 = <&msensor_reset_on>;
+		pinctrl-1 = <&msensor_reset_off>;
+		vdd-supply = <&pm8953_l22>;
+		vio-supply = <&pm8953_l6>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <42 0x02>;
+	};
+};
+/*lenovo-sw caoyi1 add for sensor 20160328 begin end*/
 
 &i2c_5 { /* BLSP2 QUP1 (NFC) */
-	nq@28 {
+	/*nq@28 {
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;
 		qcom,nq-irq = <&tlmm 17 0x00>;
@@ -56,11 +108,30 @@
 		pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
 		clocks = <&clock_gcc clk_bb_clk2_pin>;
 		clock-names = "ref_clk";
+	};*/
+
+	/* BCM 20797 NFC Controller */
+	bcm2079x@76 {
+		status = "ok";
+		compatible = "brcm,bcm2079x";
+		reg = <0x76>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <17 0>; 		/* NFC_IRQ */
+		gpios = <&tlmm 87 0>, 	/* NFC_ENABLE_IN */
+			<&tlmm 17 0>, 		/* NFC_IRQ */
+			<&tlmm 16 0>; 		/* NFC_POWER_ON */
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&nfc_irq_default &nfc_pwr_default &nfc_en_default>;
+
+		qcom,clk-gpio = <&pm8953_gpios 2 0x00>;
+		clocks = <&clock_gcc clk_bb_clk2_pin>;
+		clock-names = "ref_clk";
 	};
 };
 
 &pm8953_l10 {
-	regulator-max-microvolt = <2850000>;
+	regulator-max-microvolt = <1800000>;
 };
 
 &soc {
@@ -87,6 +158,7 @@
 			debounce-interval = <15>;
 		};
 
+
 		vol_up {
 			label = "volume_up";
 			gpios = <&tlmm 85 0x1>;
@@ -107,76 +179,126 @@
 		qcom,dig-vtg-min = <1800000>;
 		qcom,dig-vtg-max = <1800000>;
 	};
+	vci_disp_vreg: vci_disp_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vci_disp";
+		gpio = <&tlmm 96 0>;
+		startup-delay-us = <300>;
+		enable-active-high;
+		regulator-boot-on;
+	};
+
+	vio_disp_vreg: vio_disp_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vio_disp";
+		vin-supply = <&pm8953_l6>;
+		gpio = <&tlmm 33 0>;
+		startup-delay-us = <300>;
+		enable-active-high;
+		regulator-boot-on;
+	};
 };
 
 &pmi_haptic{
-	qcom,actuator-type = "lra";
-	qcom,lra-auto-res-mode="qwd";
-	qcom,lra-high-z="opt1";
-	qcom,lra-res-cal-period = <0>;
-	qcom,wave-play-rate-us = <4165>;
+	compatible = "qcom,qpnp-haptic";
+	reg = <0xc000 0x100>;
+	interrupts = <0x3 0xc0 0x0>,
+			<0x3 0xc0 0x1>;
+	interrupt-names = "sc-irq", "play-irq";
+	qcom,play-mode = "buffer";
+	qcom,wave-play-rate-us = <4263>;
+	qcom,actuator-type = "erm";
+	qcom,wave-shape = "square";
+	qcom,vmax-mv = <3200>;
+	qcom,ilim-ma = <100>;
+	qcom,sc-deb-cycles = <8>;
+	qcom,int-pwm-freq-khz = <505>;
+	qcom,en-brake;
+	qcom,context-haptics;
+	qcom,brake-pattern = [03 02 00 00];
+	qcom,use-play-irq;
+	qcom,use-sc-irq;
+	qcom,wave-samples = [5c 5c 5c 5c 5c 5c 5c 5c];
+	qcom,wave-samples_low = [54 54 54 54 54 54 54 54];
+	qcom,wave-rep-cnt = <1>;
+	qcom,wave-samp-rep-cnt = <1>;
 };
+
 
 &wled {
 	qcom,cons-sync-write-delay-us = <1000>;
 };
-
+/*lenovo-sw zhangjiano add camera dtsi 2016-03-28*/
 &flash_led {
 	compatible = "qcom,qpnp-flash-led";
 	reg = <0xd300 0x100>;
+	pinctrl-names = "flash_led_enable","flash_led_disable";
+	pinctrl-0 = <&rear_flash_led_enable>;
+	pinctrl-1 = <&rear_flash_led_disable>;
 	qcom,follow-otst2-rb-disabled;
 };
 
-#include "msm8953-mdss-panels.dtsi"
+#include "dsi-panel-mot-smd-549-1080p-cmd.dtsi"
+#include "dsi-panel-mot-dummy-qhd-video.dtsi"
+//#include "msm8953-mdss-panels.dtsi"
 
-&mdss_mdp {
-	qcom,mdss-pref-prim-intf = "dsi";
-};
+&pmx_mdss {
+	mdss_dsi_active {
+		mux {
+			pins = "gpio61";
+		};
 
-&mdss_dsi {
-	hw-config = "single_dsi";
+		config {
+			pins = "gpio61";
+		};
+	};
+
+	mdss_dsi_suspend {
+		mux {
+			pins = "gpio61";
+		};
+
+		config {
+			pins = "gpio61";
+		};
+	};
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_truly_1080_vid>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 
-	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,dsi-pref-prim-pan = <&mot_smd_549_1080p_cmd_v0>;
+	vci_disp-supply = <&vci_disp_vreg>;
+	vio_disp-supply = <&vio_disp_vreg>;
+	elvdd_disp-supply = <&lab_regulator>;
+	elvss_disp-supply = <&ibb_regulator>;
 	qcom,platform-reset-gpio = <&tlmm 61 0>;
-	qcom,platform-bklight-en-gpio = <&tlmm 59 0>;
+	qcom,platform-te-gpio = <&tlmm 24 0>;
 };
 
-&mdss_dsi1 {
-	status = "disabled";
-	qcom,dsi-pref-prim-pan = <&dsi_adv7533_1080p>;
-	pinctrl-names = "mdss_default", "mdss_sleep";
-	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-
-	qcom,pluggable;
-	qcom,platform-te-gpio = <&tlmm 24 0>;
-	qcom,platform-reset-gpio = <&tlmm 61 0>;
-	qcom,platform-bklight-en-gpio = <&tlmm 59 0>;
-};
-
+/* display boost and inverting boost regulators */
 &labibb {
 	status = "ok";
-	qpnp,qpnp-labibb-mode = "lcd";
+	qpnp,qpnp-labibb-mode = "amoled";
+	qpnp,swire-control;
 };
 
-&dsi_truly_1080_vid {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,mdss-dsi-pan-enable-dynamic-fps;
-	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_clk_mode";
+&ibb_regulator {
+	qcom,qpnp-ibb-discharge-resistor = <32>;
 };
 
-&dsi_truly_1080_cmd {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,ulps-enabled;
-	qcom,partial-update-enabled;
-	qcom,panel-roi-alignment = <2 2 4 2 1080 2>;
+&pmi8950_mpps {
+	mpp@a200 {
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <5>;		/* DTEST2 */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		qcom,invert = <0>;
+		status = "okay";
+	};
 };
 
 &blsp1_uart0 {
@@ -238,7 +360,7 @@
 		1 &intc 0 221 0
 		2 &tlmm 133 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&tlmm 133 0x1>;
+	cd-gpios = <&tlmm 133 0x0>;
 
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
 								200000000>;
@@ -257,15 +379,20 @@
 /{
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
-		#include "batterydata-itech-3000mah.dtsi"
-		#include "batterydata-ascent-3450mAh.dtsi"
+		#include "batterydata-kuntao-5000mah.dtsi"
+		#include "batterydata-kuntao-2-5000mah.dtsi"
 	};
 };
 
 &pmi8950_fg {
 	qcom,battery-data = <&mtp_batterydata>;
+	qcom,fg-vadc = <&pmi8950_vadc>;
 };
-
+/*
+&usb3 {
+	vbus_dwc3-supply = <&bq2589x_otg_supply>;
+};
+*/
 &pmi8950_charger {
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,chg-led-sw-controls;

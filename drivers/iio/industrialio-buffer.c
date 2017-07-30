@@ -549,6 +549,8 @@ static void iio_buffer_update_bytes_per_datum(struct iio_dev *indio_dev,
 	bytes = iio_compute_scan_bytes(indio_dev, buffer->scan_mask,
 		buffer->scan_timestamp);
 
+	printk("%s-%d: bytes=%u\n", __func__, __LINE__, bytes);
+
 	buffer->access->set_bytes_per_datum(buffer, bytes);
 }
 
@@ -561,6 +563,8 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 	struct iio_buffer *buffer;
 	unsigned long *compound_mask;
 	const unsigned long *old_mask;
+
+	printk("%s-%d: START insb=%p remb=%p\n", __func__, __LINE__, insert_buffer, remove_buffer);
 
 	/* Wind down existing buffers - iff there are any */
 	if (!list_empty(&indio_dev->buffer_list)) {
@@ -591,6 +595,7 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 		indio_dev->currentmode = INDIO_DIRECT_MODE;
 		if (indio_dev->available_scan_masks == NULL)
 			kfree(old_mask);
+		printk("%s-%d: DONE CLOSING\n", __func__, __LINE__);
 		return 0;
 	}
 
@@ -636,8 +641,11 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 
 	iio_update_demux(indio_dev);
 
+	printk("%s-%d\n", __func__, __LINE__);
+
 	/* Wind up again */
 	if (indio_dev->setup_ops->preenable) {
+		printk("%s-%d\n", __func__, __LINE__);
 		ret = indio_dev->setup_ops->preenable(indio_dev);
 		if (ret) {
 			printk(KERN_ERR
@@ -649,9 +657,13 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 		iio_compute_scan_bytes(indio_dev,
 				       indio_dev->active_scan_mask,
 				       indio_dev->scan_timestamp);
+
+	printk("%s-%d: scanbytes=%d\n", __func__, __LINE__, indio_dev->scan_bytes);
+
 	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list) {
 		iio_buffer_update_bytes_per_datum(indio_dev, buffer);
 		if (buffer->access->request_update) {
+			printk("%s-%d\n", __func__, __LINE__);
 			ret = buffer->access->request_update(buffer);
 			if (ret) {
 				printk(KERN_INFO
@@ -685,7 +697,9 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 		goto error_run_postdisable;
 	}
 
+	printk("%s-%d\n", __func__, __LINE__);
 	if (indio_dev->setup_ops->postenable) {
+		printk("%s-%d\n", __func__, __LINE__);
 		ret = indio_dev->setup_ops->postenable(indio_dev);
 		if (ret) {
 			printk(KERN_INFO
@@ -701,6 +715,8 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 		kfree(compound_mask);
 	else
 		kfree(old_mask);
+
+	printk("%s-%d: DONE\n", __func__, __LINE__);
 
 	return success;
 
@@ -722,6 +738,8 @@ int iio_update_buffers(struct iio_dev *indio_dev,
 		       struct iio_buffer *remove_buffer)
 {
 	int ret;
+
+	printk("%s-%d: START\n", __func__, __LINE__);
 
 	if (insert_buffer == remove_buffer)
 		return 0;
@@ -750,6 +768,8 @@ int iio_update_buffers(struct iio_dev *indio_dev,
 out_unlock:
 	mutex_unlock(&indio_dev->mlock);
 	mutex_unlock(&indio_dev->info_exist_lock);
+
+	printk("%s-%d: DONE\n", __func__, __LINE__);
 
 	return ret;
 }

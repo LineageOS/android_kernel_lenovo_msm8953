@@ -131,6 +131,9 @@ static const struct adreno_debugbus_block a5xx_debugbus_blocks[] = {
 /* Width of A5XX_CP_DRAW_STATE_ADDR is 8 bits */
 #define A5XX_CP_DRAW_STATE_ADDR_WIDTH 8
 
+/* Width of A5XX_CP_DRAW_STATE_ADDR is 8 bits */
+#define A5XX_CP_DRAW_STATE_ADDR_WIDTH 8
+
 /* a5xx_snapshot_cp_pm4() - Dump PM4 data in snapshot */
 static size_t a5xx_snapshot_cp_pm4(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv)

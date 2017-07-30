@@ -1,0 +1,341 @@
+/* Copyright (c) 2015, Motorola Mobility Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8953.dtsi"
+#include "msm8953-mtp.dtsi"
+
+/ {
+	utags {
+		compatible = "mmi,utags";
+		mmi,main-utags = "/dev/block/bootdevice/by-name/utags";
+		mmi,backup-utags = "/dev/block/bootdevice/by-name/utagsBackup";
+	};
+
+	hw {
+		compatible = "mmi,utags";
+		mmi,dir-name = "hw";
+		mmi,main-utags = "/dev/block/bootdevice/by-name/hw";
+	};
+};
+
+&soc {
+    fingerprint@0 {
+        compatible = "validity,metallicatee";
+        interrupt-parent = <&tlmm>;
+        interrupts = <48 0>;
+        synaptics,gpio_drdy = <&tlmm 48 0x00>;
+        synaptics,gpio_sleep = <&tlmm 134 0x00>;
+        synaptics,gpio_3p3v = <&tlmm 139 0x00>;
+        synaptics,gpio_1p8v = <&tlmm 63 0x00>;
+    };
+
+/*lenovo-sw wengjun1 add for sys_private probe 20160315 begin*/
+	sysfs_private {
+		compatible = "qcom,sysfs_private";
+		reg = <0x1000000 0x300000>;
+		interrupts = <0 208 0>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		lenovo,tz_gpio = <0 1 2 3 135 136 137 138>;
+		vdd-supply = <&pm8953_l16>;
+		vdd-low-microvolt = <1800000>;
+		vdd-high-microvolt = <1800000>;
+	};
+/*lenovo-sw wengjun1 add for sys_private probe 20160315 end*/
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
+		pinctrl-0 = <&gpio_key_active>;
+		pinctrl-1 = <&gpio_key_suspend>;
+
+		/delete-node/ camera_focus;
+		/delete-node/ camera_snapshot;
+
+		homepage {
+			label = "homepage";
+			gpios = <&tlmm 47 0x1>;
+			linux,input-type = <1>;
+			linux,code = <172>;
+			debounce-interval = <15>;
+		};
+
+		one_key_low_power {
+			label = "onekeylowpower";
+			gpios = <&tlmm 86 0x1>;
+			linux,input-type = <5>;
+			linux,code = <0x13>;
+			debounce-interval = <15>;
+		};
+
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&tlmm 85 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			debounce-interval = <15>;
+		};
+	};
+};
+
+&tlmm {
+	usb_id_int_active {
+		usb_id_active: usb_id_active {
+			mux {
+				pins = "gpio62";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio62";
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
+	};
+	usb_id_int_deactive {
+		usb_id_deactive: usb_id_deactive {
+			mux {
+				pins = "gpio62";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio62";
+				drive-strength = <8>;
+				bias-disable;
+			};
+		};
+	};
+};
+
+&usb3 {
+	qcom,usbid-gpio = <&tlmm 62 0>;
+	pinctrl-names = "usbid_default","usbid_deactive";
+	pinctrl-0 = <&usb_id_active>;
+	pinctrl-1 = <&usb_id_deactive>;
+	vbus_dwc3-supply = <&smb1351_otg_supply>;
+};
+
+&qusb_phy {
+	qcom,qusb-phy-init-seq = <0xF8 0x80
+				0x6F 0x84
+				0x83 0x88
+				0xC7 0x8C
+				0x14 0x9C
+				0x30 0x08
+				0x79 0x0C
+				0x21 0x10
+				0x03 0x90
+				0x9F 0x1C
+				0x00 0x18>;
+
+};
+
+&pmi8950_mpps {
+	mpp@a000 {
+		/* Host detect */
+		status = "ok";
+		qcom,mode = <4>; /* AIN input */
+		qcom,ain-route = <0>; /* AMUX 5 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+	};
+};
+
+&pmi8950_vadc {
+	chan@10 {
+		label = "usb_in";
+		reg = <0x10>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <1>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
+	};
+};
+
+&pm8953_rtc {
+	qcom,qpnp-rtc-alarm-pwrup = <1>;
+};
+
+&pm8953_vadc {
+	chan@11 {
+		label = "chg_therm";
+	};
+
+	chan@13 {
+		label = "msm_therm";
+	};
+};
+
+&android_usb {
+	/* Disable CPU idle power collapse for factory */
+	mmi,pm-qos-latency-factory = <2 2 2>;
+};
+
+&pmi8950_charger {
+	status = "disabled";
+};
+
+&pmi8950_fg {
+	qcom,fg-delta-soc = <1>;
+	qcom,ext-sense-type;
+	qcom,vbat-estimate-diff-mv= <100>;
+	qcom,fg-iterm-ma = <600>;
+	qcom,hold-soc-while-full;
+};
+
+&mtp_batterydata {
+	qcom,batt-id-range-pct = <86>;
+};
+
+&i2c_4 {
+	aw2015@64 {
+		status = "ok";
+		compatible = "awinic,aw2015";
+		reg = <0x64>;
+		vcc-supply = <&pm8953_l6>;
+		aw2015,mode = "RGB sync";
+
+		aw2015,rgb {
+			aw2015,name = "rgb";
+			aw2015,id = <0>;
+			aw2015,max-brightness = <0xFFFFFF>;
+			aw2015,max-current = <0>; /*0:3mA :6.375mA 2:12.75mA 3:25.5mA*/
+			aw2015,rise-time-ms = <4>;
+			aw2015,hold-time-ms = <4>;
+			aw2015,fall-time-ms = <4>;
+			aw2015,off-time-ms = <7>;
+			aw2015,pwm-duty = <255>;/*127/255 = 50%*/
+			lenovo,factory-alway-on;
+		};
+	};
+
+	smb1351_otg_supply: smb1351-charger@57 {
+		compatible = "qcom,smb1351-charger";
+		reg = <0x57>;
+		//status = "disabled";
+		status = "okay";
+		interrupt-parent = <&tlmm>;
+		interrupts = <21 2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+		vdd-supply = <&pm8953_l6>;
+		qcom,chg-pm-vadc = <&pm8953_vadc>;
+		qcom,chg-pmi-vadc = <&pmi8950_vadc>;
+		qcom,en-gpio = <&tlmm 20 0x0>;
+		/*qcom,led-gpio = <&tlmm 132 0x0>;*/
+		qcom,otg-short-gpio = <&tlmm 13 0x0>;
+		qcom,float-voltage-mv = <4400>;
+		qcom,fastchg-current-max-ma = <2000>;
+		qcom,iterm-ma = <200>;
+		qcom,recharge-mv = <100>;
+		regulator-name = "smb1351_otg_vreg";
+		qcom,bms-psy-name = "bms";
+		qcom,bms-hw-is-fg;
+		qcom,batt-hot-decidegc = <500>;
+		qcom,batt-cold-decidegc = <0>;
+		qcom,batt-missing-decidegc = <(-200)>;
+		qcom,batt-warm-decidegc = <460>;
+		qcom,batt-cool-decidegc = <100>;
+		qcom,batt-warm-mv = <4200>;
+		qcom,batt-cool-mv = <4400>;
+		//qcom,using-pmic-therm = <0>;
+		qcom,parallel-usb-min-current-ma = <1500>;
+		qcom,parallel-usb-9v-min-current-ma = <1500>;
+		qcom,parallel-usb-12v-min-current-ma = <1500>;
+		qcom,parallel-allowed-lowering-ma = <1500>;
+		qcom,use-external-fg;
+		qcom,resume-soc = <96>;
+	};
+
+	smb1351-charger@1d {
+		compatible = "qcom,smb1351-charger";
+		//status = "disabled";
+		status = "okay";
+		reg = <0x1d>;
+		vdd-supply = <&pm8953_l6>;
+		qcom,parallel-charger;
+		qcom,float-voltage-mv = <4400>;
+		qcom,recharge-mv = <100>;
+	};
+};
+
+/*lenovo-sw wengjun1 add for touch dts customization 20160419 begin*/
+&i2c_3 { /* BLSP1 QUP3 */
+	synaptics@20 {
+		config_modifier-names = "wakeup", "aod", "charger";
+		config_modifier-wakeup {
+			wakeup-active {
+				patch-data = "F1@0=0&7";
+			};
+			wakeup-suspended {
+				patch-data = "F12@20:1=2;W";
+			};
+		};
+		config_modifier-aod {
+			aod-suspended {
+				patch-data = "S"; /* Power->sleep */
+			};
+		};
+		config_modifier-charger {
+			enable-notification;
+			charger-active {
+				/* Charger bit; */
+				patch-data = "F1@0=20";
+			};
+		};
+	};
+};
+/*lenovo-sw wengjun1 add for touch dts customization 20160419 begin*/
+
+&spmi_bus {
+	qcom,pmi8950@3 {
+		qcom,leds@d800 {
+			qcom,disp-type-amoled;
+			qcom,switch-freq-khz = <800>;
+			qcom,loop-ea-gm = <1>;
+			qcom,vref-psm-mv = <550>;
+			qcom,ovp-mv = <31000>;
+			qcom,enable-amoled-pulse-skipping;
+		};
+	};
+	qcom,pmi8950@2 {
+		qcom,leds@a100 {
+			status = "disable";
+			qcom,led_mpp_2 {
+				label = "mpp";
+				linux,name = "green";
+				linux,default-trigger = "none";
+				qcom,default-state = "off";
+				qcom,max-current = <40>;
+				qcom,current-setting = <5>;
+				qcom,id = <6>;
+				qcom,mode = "manual";
+				qcom,source-sel = <1>;
+				qcom,mode-ctrl = <0x60>;
+			};
+		};
+	};
+};
+
+&mdss_dsi0 {
+	qcom,display-id = "primary";
+};
+
+&mdss_dsi1 {
+	status = "disable";
+};

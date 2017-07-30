@@ -1,0 +1,26 @@
+menu "eCompass units"
+
+config ST_LSM303AGR_IIO
+         tristate "STMicroelectronics LSM303AGR sensor"
+         depends on (I2C || SPI) && SYSFS
+         select IIO_BUFFER
+         select IIO_TRIGGERED_BUFFER
+	 select ST_LSM303AGR_I2C_IIO if (I2C)
+	 select ST_LSM303AGR_SPI_IIO if (SPI)
+         help
+           This driver support the STMicroelectronics LSM303AGR sensor.
+
+           To compile this driver as a module, choose M here. The module
+	   will be called lsm303agr.
+
+config ST_LSM303AGR_I2C_IIO
+	tristate
+	depends on ST_LSM303AGR_IIO
+	depends on I2C
+
+config ST_LSM303AGR_SPI_IIO
+	tristate
+	depends on ST_LSM303AGR_IIO
+	depends on SPI
+
+endmenu

@@ -826,7 +826,7 @@ static void ipa_rx_switch_to_intr_mode(struct ipa_sys_context *sys)
 		IPAERR("sps_get_config() failed %d\n", ret);
 		goto fail;
 	}
-
+	//Begin, lenovo-sw, wangsq2, KUNTAO-889, return  if already in intr mode
 	if (!atomic_read(&sys->curr_polling_state) &&
 		((sys->ep->connect.options & SPS_O_EOT) == SPS_O_EOT)) {
 		IPADBG("already in intr mode\n");
@@ -837,7 +837,7 @@ static void ipa_rx_switch_to_intr_mode(struct ipa_sys_context *sys)
 		IPAERR("already in intr mode\n");
 		goto fail;
 	}
-
+	//end KUNTAO-889
 	sys->event.options = SPS_O_EOT;
 	ret = sps_register_event(sys->ep->ep_hdl, &sys->event);
 	if (ret) {

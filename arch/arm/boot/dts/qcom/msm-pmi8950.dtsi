@@ -216,6 +216,8 @@
 			qcom,force-aicl-rerun;
 			qcom,aicl-rerun-period-s = <180>;
 			qcom,autoadjust-vfloat;
+			qcom,pmi-charger-disable;
+			qcom,use-external-charger;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;

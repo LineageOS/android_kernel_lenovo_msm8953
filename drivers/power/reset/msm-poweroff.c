@@ -264,6 +264,19 @@ static void halt_spmi_pmic_arbiter(void)
 	}
 }
 
+static bool allow_to_edl(void)
+{
+	struct device_node *np = of_find_node_by_path("/chosen");
+	bool fact_cable = false;
+	u32 sec_version = 0;
+	fact_cable = of_property_read_bool(np, "mmi,factory-cable");
+	of_property_read_u32(np, "mmi,sec_ver", &sec_version);
+	if((sec_version < 2) || fact_cable)
+		return true;
+	else
+		return false;
+}
+
 static void msm_restart_prepare(const char *cmd)
 {
 	bool need_warm_reset = false;
@@ -281,14 +294,44 @@ static void msm_restart_prepare(const char *cmd)
 
 	if (qpnp_pon_check_hard_reset_stored()) {
 		/* Set warm reset as true when device is in dload mode */
+		 /*lenovo-sw jixj2015.3.13 modify begin*/
+		#if 0
 		if (get_dload_mode() ||
 			((cmd != NULL && cmd[0] != '\0') &&
-			!strcmp(cmd, "edl")))
+			strcmp(cmd, "recovery") &&
+			strcmp(cmd, "bootloader") &&
+			strcmp(cmd, "rtc")))
+		#else
+		if (get_dload_mode() ||
+			((cmd != NULL && cmd[0] != '\0') &&
+			strcmp(cmd, "recovery") &&
+			strcmp(cmd, "bootloader") &&
+			strcmp(cmd, "testmode") &&
+			strcmp(cmd, "dloadmode") &&
+			strcmp(cmd, "rtc")))
+		#endif
+		 /*lenovo-sw jixj2015.3.13 modify end*/
 			need_warm_reset = true;
 	} else {
 		need_warm_reset = (get_dload_mode() ||
 				(cmd != NULL && cmd[0] != '\0'));
 	}
+    /*lenovo-sw jixj2015.3.13 add begin, shutdown menu is reboot(GlobalActions)*/
+    if ((cmd != NULL && cmd[0] != '\0') &&
+        !strcmp(cmd, "GlobalActions")) {
+        need_warm_reset = false;
+    } else if(in_panic) {
+        need_warm_reset = true;
+    }
+
+    if(!in_panic) {
+        qpnp_pon_store_extra_reset_info(RESET_EXTRA_LAST_REBOOT_REASON,
+				RESET_EXTRA_LAST_REBOOT_REASON);
+        pr_crit("msm_restart_prepare normal reboot\n");
+    }
+
+    pr_crit("msm_restart_prepare need_warm_reset=%d\n",need_warm_reset);
+    /*lenovo-sw jixj2015.3.13 add begin*/
 
 	/* Hard reset the PMIC unless memory contents must be maintained. */
 	if (need_warm_reset) {
@@ -302,6 +345,14 @@ static void msm_restart_prepare(const char *cmd)
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_BOOTLOADER);
 			__raw_writel(0x77665500, restart_reason);
+			/* set reboot_bl flag in PMIC for cold reset */
+			qpnp_pon_store_extra_reset_info(RESET_EXTRA_REBOOT_BL_REASON,
+				RESET_EXTRA_REBOOT_BL_REASON);
+			/*
+			 * force cold reboot here to avoid impaction from
+			 * modem double reboot workaround solution.
+			 */
+			qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
 		} else if (!strncmp(cmd, "recovery", 8)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_RECOVERY);
@@ -329,8 +380,14 @@ static void msm_restart_prepare(const char *cmd)
 			if (!ret)
 				__raw_writel(0x6f656d00 | (code & 0xff),
 					     restart_reason);
-		} else if (!strncmp(cmd, "edl", 3)) {
+		} else if (!strncmp(cmd, "edl", 3) && allow_to_edl()) {
 			enable_emergency_dload_mode();
+		/*lenovo-sw jixj 2015.3.13 add begin*/
+		} else if (!strncmp(cmd, "testmode", 8)) {
+			__raw_writel(0x77665504, restart_reason);
+		} else if (!strncmp(cmd, "dloadmode", 9)) {
+			set_dload_mode(1);
+		/*lenovo-sw jixj 2015.3.13 add end*/
 		} else {
 			__raw_writel(0x77665501, restart_reason);
 		}
@@ -395,6 +452,8 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 static void do_msm_poweroff(void)
 {
 	pr_notice("Powering off the SoC\n");
+	qpnp_pon_store_extra_reset_info(RESET_EXTRA_LAST_REBOOT_REASON,
+		RESET_EXTRA_LAST_REBOOT_REASON);
 
 	set_dload_mode(0);
 	scm_disable_sdi();

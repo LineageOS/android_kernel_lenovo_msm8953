@@ -548,6 +548,33 @@ struct smd_shared_word_access {
 /**
  * Maps edge type to local and remote processor ID's.
  */
+/* lenovo.sw begin chenyb1 add for adding master vote info in rpm_state */
+#ifdef CONFIG_LENOVO_PM_LOG
+static struct edge_to_pid edge_to_pids[] = {
+	[SMD_APPS_MODEM] = {SMD_APPS, SMD_MODEM, "modem"},
+	[SMD_APPS_QDSP] = {SMD_APPS, SMD_Q6, "adsp"},
+	[SMD_MODEM_QDSP] = {SMD_MODEM, SMD_Q6},
+	[SMD_APPS_DSPS] = {SMD_APPS, SMD_DSPS, "dsps"},
+	[SMD_MODEM_DSPS] = {SMD_MODEM, SMD_DSPS},
+	[SMD_QDSP_DSPS] = {SMD_Q6, SMD_DSPS},
+	[SMD_APPS_WCNSS] = {SMD_APPS, SMD_WCNSS, "wcnss"},
+	[SMD_MODEM_WCNSS] = {SMD_MODEM, SMD_WCNSS},
+	[SMD_QDSP_WCNSS] = {SMD_Q6, SMD_WCNSS},
+	[SMD_DSPS_WCNSS] = {SMD_DSPS, SMD_WCNSS},
+	[SMD_APPS_Q6FW] = {SMD_APPS, SMD_MODEM_Q6_FW},
+	[SMD_MODEM_Q6FW] = {SMD_MODEM, SMD_MODEM_Q6_FW},
+	[SMD_QDSP_Q6FW] = {SMD_Q6, SMD_MODEM_Q6_FW},
+	[SMD_DSPS_Q6FW] = {SMD_DSPS, SMD_MODEM_Q6_FW},
+	[SMD_WCNSS_Q6FW] = {SMD_WCNSS, SMD_MODEM_Q6_FW},
+	[SMD_APPS_RPM] = {SMD_APPS, SMD_RPM, "rpm"},
+	[SMD_MODEM_RPM] = {SMD_MODEM, SMD_RPM},
+	[SMD_QDSP_RPM] = {SMD_Q6, SMD_RPM},
+	[SMD_WCNSS_RPM] = {SMD_WCNSS, SMD_RPM},
+	[SMD_TZ_RPM] = {SMD_TZ, SMD_RPM},
+};
+
+
+#else
 static struct edge_to_pid edge_to_pids[] = {
 	[SMD_APPS_MODEM] = {SMD_APPS, SMD_MODEM, "modem"},
 	[SMD_APPS_QDSP] = {SMD_APPS, SMD_Q6, "adsp"},
@@ -570,7 +597,8 @@ static struct edge_to_pid edge_to_pids[] = {
 	[SMD_WCNSS_RPM] = {SMD_WCNSS, SMD_RPM},
 	[SMD_TZ_RPM] = {SMD_TZ, SMD_RPM},
 };
-
+#endif
+/* lenovo.sw begin chenyb1 add for adding master vote info in rpm_state */
 struct restart_notifier_block {
 	unsigned processor;
 	char *name;
