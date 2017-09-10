@@ -30,12 +30,12 @@ EXPORT_SYMBOL(get_tpd_suspend_status);
 
 static ssize_t lenovo_tpd_suspend_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
-	return sprintf(buf,"%d.\n", get_tpd_suspend_status());
+	return sprintf(buf,"%d\n", get_tpd_suspend_status());
 }
 
 static ssize_t lenovo_tpd_glove_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
-	return sprintf(buf,"%d.\n", get_glove_ctrl());
+	return sprintf(buf,"%d\n", get_glove_ctrl());
 }
 
 static ssize_t lenovo_tpd_info_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
