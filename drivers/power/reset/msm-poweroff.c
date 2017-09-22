@@ -299,6 +299,9 @@ static void msm_restart_prepare(const char *cmd)
 #ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (in_panic)
 		need_warm_reset = true;
+	else
+		qpnp_pon_store_extra_reset_info(RESET_EXTRA_LAST_REBOOT_REASON,
+				RESET_EXTRA_LAST_REBOOT_REASON);
 #endif
 
 	/* Hard reset the PMIC unless memory contents must be maintained. */
@@ -416,6 +419,10 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 static void do_msm_poweroff(void)
 {
 	pr_notice("Powering off the SoC\n");
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
+	qpnp_pon_store_extra_reset_info(RESET_EXTRA_LAST_REBOOT_REASON,
+		RESET_EXTRA_LAST_REBOOT_REASON);
+#endif
 
 	set_dload_mode(0);
 	scm_disable_sdi();
