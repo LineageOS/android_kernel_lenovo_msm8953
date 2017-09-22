@@ -750,6 +750,7 @@
 #define SW_UNSUPPORT_INSERT	0x10  /* set = unsupported device inserted */
 #define SW_MICROPHONE2_INSERT   0x11  /* set = inserted */
 #define SW_MUTE_DEVICE		0x12  /* set = device disabled */
+#define SW_ONEKEY_LOW_POWER	0x13  /* set = low power mode */
 #define SW_MAX			0x20
 #define SW_CNT			(SW_MAX+1)
 
