@@ -801,6 +801,11 @@ config INPUT_DRV2667_HAPTICS
 
 source "drivers/input/misc/ots_pat9125/Kconfig"
 
+config SYNAPTICS_FINGERPRINT
+	tristate "Synaptics fingerprint reader support"
+	help
+	  Say Y to enable support for the Synaptics fingerprint reader driver.
+
 config SENSORS_LTR553
 	tristate "LTR553 light and proximity device driver"
 	depends on I2C
