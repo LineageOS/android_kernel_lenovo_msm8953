@@ -10055,6 +10055,26 @@ static const struct snd_kcontrol_new sec_tdm_rx_3_port_mixer_controls[] = {
 		msm_routing_put_port_mixer),
 };
 
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
+static const struct snd_kcontrol_new quin_mi2s_rx_port_mixer_controls[] = {
+	SOC_DOUBLE_EXT("PRI_MI2S_TX", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_QUINARY_MI2S_RX,
+		MSM_BACKEND_DAI_PRI_MI2S_TX, 1, 0,
+		msm_routing_get_port_mixer,
+		msm_routing_put_port_mixer),
+	SOC_DOUBLE_EXT("TERT_MI2S_TX", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_QUINARY_MI2S_RX,
+		MSM_BACKEND_DAI_TERTIARY_MI2S_TX, 1, 0,
+		msm_routing_get_port_mixer,
+		msm_routing_put_port_mixer),
+	SOC_DOUBLE_EXT("INTERNAL_FM_TX", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_QUINARY_MI2S_RX,
+		MSM_BACKEND_DAI_INT_FM_TX, 1, 0,
+		msm_routing_get_port_mixer,
+		msm_routing_put_port_mixer),
+};
+#endif
+
 static const struct snd_kcontrol_new tert_tdm_rx_0_port_mixer_controls[] = {
 	SOC_DOUBLE_EXT("PRI_MI2S_TX", SND_SOC_NOPM,
 	MSM_BACKEND_DAI_TERT_TDM_RX_0,
@@ -12930,6 +12950,11 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_MIXER("QUAT_MI2S_RX Port Mixer", SND_SOC_NOPM, 0, 0,
 	quat_mi2s_rx_port_mixer_controls,
 	ARRAY_SIZE(quat_mi2s_rx_port_mixer_controls)),
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
+	SND_SOC_DAPM_MIXER("QUIN_MI2S_RX Port Mixer", SND_SOC_NOPM, 0, 0,
+	quin_mi2s_rx_port_mixer_controls,
+	ARRAY_SIZE(quin_mi2s_rx_port_mixer_controls)),
+#endif
 	SND_SOC_DAPM_MIXER("PRI_TDM_RX_0 Port Mixer", SND_SOC_NOPM, 0, 0,
 	pri_tdm_rx_0_port_mixer_controls,
 	ARRAY_SIZE(pri_tdm_rx_0_port_mixer_controls)),
@@ -14320,6 +14345,9 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"VOC_EXT_EC MUX", "SEC_MI2S_TX" , "SEC_MI2S_TX"},
 	{"VOC_EXT_EC MUX", "TERT_MI2S_TX" , "TERT_MI2S_TX"},
 	{"VOC_EXT_EC MUX", "QUAT_MI2S_TX" , "QUAT_MI2S_TX"},
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
+	{"VOC_EXT_EC MUX", "QUIN_MI2S_TX" , "QUIN_MI2S_TX"},
+#endif
 	{"VOC_EXT_EC MUX", "SLIM_1_TX" ,    "SLIMBUS_1_TX"},
 	{"CS-VOICE_UL1", NULL, "VOC_EXT_EC MUX"},
 	{"VOIP_UL", NULL, "VOC_EXT_EC MUX"},
@@ -15136,6 +15164,13 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"QUAT_MI2S_RX Port Mixer", "INTERNAL_FM_TX", "INT_FM_TX"},
 	{"QUAT_MI2S_RX Port Mixer", "AUX_PCM_UL_TX", "AUX_PCM_TX"},
 	{"QUAT_MI2S_RX", NULL, "QUAT_MI2S_RX Port Mixer"},
+
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
+	{"QUIN_MI2S_RX Port Mixer", "PRI_MI2S_TX", "PRI_MI2S_TX"},
+	{"QUIN_MI2S_RX Port Mixer", "TERT_MI2S_TX", "TERT_MI2S_TX"},
+	{"QUIN_MI2S_RX Port Mixer", "INTERNAL_FM_TX", "INT_FM_TX"},
+	{"QUIN_MI2S_RX", NULL, "QUIN_MI2S_RX Port Mixer"},
+#endif
 
 	/* Backend Enablement */
 
