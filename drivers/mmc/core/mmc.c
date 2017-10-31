@@ -697,12 +697,6 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		card->ext_csd.enhanced_rpmb_supported =
 			(card->ext_csd.rel_param &
 			 EXT_CSD_WR_REL_PARAM_EN_RPMB_REL_WR);
-
-		card->ext_csd.ffu_capable =
-			((ext_csd[EXT_CSD_SUPPORTED_MODE] & 0x1) == 0x1) &&
-			((ext_csd[EXT_CSD_FW_CONFIG] & 0x1) == 0x0);
-		card->ext_csd.ffu_mode_op = ext_csd[EXT_CSD_FFU_FEATURES];
-
 	} else {
 		card->ext_csd.cmdq_support = 0;
 		card->ext_csd.cmdq_depth = 0;
@@ -818,7 +812,6 @@ MMC_DEV_ATTR(raw_rpmb_size_mult, "%#x\n", card->ext_csd.raw_rpmb_size_mult);
 MMC_DEV_ATTR(enhanced_rpmb_supported, "%#x\n",
 		card->ext_csd.enhanced_rpmb_supported);
 MMC_DEV_ATTR(rel_sectors, "%#x\n", card->ext_csd.rel_sectors);
-MMC_DEV_ATTR(firmware_version, "0x%08x\n", card->ext_csd.fw_version);
 
 static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_cid.attr,
@@ -838,7 +831,6 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_raw_rpmb_size_mult.attr,
 	&dev_attr_enhanced_rpmb_supported.attr,
 	&dev_attr_rel_sectors.attr,
-	&dev_attr_firmware_version.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(mmc_std);
@@ -1652,11 +1644,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	struct mmc_card *oldcard)
 {
 	struct mmc_card *card;
-	int err = 0;
+	int err;
 	u32 cid[4];
 	u32 rocr;
 	u8 *ext_csd = NULL;
-	bool scan = (oldcard == NULL);
 
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
@@ -1709,15 +1700,6 @@ reinit:
 	}
 
 	if (oldcard) {
-		if (oldcard->raw_cid[0] == 0 && oldcard->raw_cid[1] == 0 &&
-		    oldcard->raw_cid[2] == 0 && oldcard->raw_cid[3] == 0) {
-			scan = true;
-			pr_info("%s: updating card identification\n", mmc_hostname(host));
-			memcpy(oldcard->raw_cid, cid, sizeof(oldcard->raw_cid));
-			err = mmc_decode_cid(oldcard);
-			if (err)
-				goto err;
-		}
 		if (memcmp(cid, oldcard->raw_cid, sizeof(cid)) != 0) {
 			err = -ENOENT;
 			pr_err("%s: %s: CID memcmp failed %d\n",
@@ -1760,7 +1742,7 @@ reinit:
 		mmc_set_bus_mode(host, MMC_BUSMODE_PUSHPULL);
 	}
 
-	if (scan) {
+	if (!oldcard) {
 		/*
 		 * Fetch CSD from card.
 		 */
@@ -1804,7 +1786,7 @@ reinit:
 		}
 	}
 
-	if (scan) {
+	if (!oldcard) {
 		/*
 		 * Fetch and process extended CSD.
 		 */
