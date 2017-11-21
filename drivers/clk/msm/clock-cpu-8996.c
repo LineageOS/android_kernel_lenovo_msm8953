@@ -501,6 +501,7 @@ static struct mux_clk perfcl_hf_mux = {
 	.base = &vbases[APC1_BASE],
 	.c = {
 		.dbg_name = "perfcl_hf_mux",
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		.ops = &clk_ops_gen_mux,
 		CLK_INIT(perfcl_hf_mux.c),
 	},
@@ -676,7 +677,7 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 {
 	struct cpu_clk_8996 *cpuclk = to_cpu_clk_8996(c);
 	int ret, err_ret;
-	unsigned long alt_pll_prev_rate;
+	unsigned long alt_pll_prev_rate = 0;
 	unsigned long alt_pll_rate;
 	unsigned long n_alt_freqs = cpuclk->n_alt_pll_freqs;
 	bool on_acd_leg = rate > MAX_PLL_MAIN_FREQ;
@@ -758,7 +759,7 @@ set_rate_fail:
 	}
 
 fail:
-	if (cpuclk->alt_pll && (n_alt_freqs > 0)) {
+	if (alt_pll_prev_rate && cpuclk->alt_pll && (n_alt_freqs > 0)) {
 		if (!cpu_clocks_v3)
 			mutex_lock(&scm_lmh_lock);
 		err_ret = clk_set_rate(cpuclk->alt_pll, alt_pll_prev_rate);

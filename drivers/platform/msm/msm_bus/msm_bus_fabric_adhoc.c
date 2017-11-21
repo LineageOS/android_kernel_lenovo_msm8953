@@ -50,13 +50,6 @@ ssize_t bw_show(struct device *dev, struct device_attribute *attr,
 			bus_node->lnode_list[i].lnode_ab[ACTIVE_CTX],
 			bus_node->lnode_list[i].lnode_ib[DUAL_CTX],
 			bus_node->lnode_list[i].lnode_ab[DUAL_CTX]);
-		trace_printk(
-		"[%d]:%s:Act_IB %llu Act_AB %llu Slp_IB %llu Slp_AB %llu\n",
-			i, bus_node->lnode_list[i].cl_name,
-			bus_node->lnode_list[i].lnode_ib[ACTIVE_CTX],
-			bus_node->lnode_list[i].lnode_ab[ACTIVE_CTX],
-			bus_node->lnode_list[i].lnode_ib[DUAL_CTX],
-			bus_node->lnode_list[i].lnode_ab[DUAL_CTX]);
 	}
 	off += scnprintf((buf + off), PAGE_SIZE,
 	"Max_Act_IB %llu Sum_Act_AB %llu Act_Util_fact %d Act_Vrail_comp %d\n",
@@ -66,18 +59,6 @@ ssize_t bw_show(struct device *dev, struct device_attribute *attr,
 		bus_node->node_bw[ACTIVE_CTX].vrail_used);
 	off += scnprintf((buf + off), PAGE_SIZE,
 	"Max_Slp_IB %llu Sum_Slp_AB %llu Slp_Util_fact %d Slp_Vrail_comp %d\n",
-		bus_node->node_bw[DUAL_CTX].max_ib,
-		bus_node->node_bw[DUAL_CTX].sum_ab,
-		bus_node->node_bw[DUAL_CTX].util_used,
-		bus_node->node_bw[DUAL_CTX].vrail_used);
-	trace_printk(
-	"Max_Act_IB %llu Sum_Act_AB %llu Act_Util_fact %d Act_Vrail_comp %d\n",
-		bus_node->node_bw[ACTIVE_CTX].max_ib,
-		bus_node->node_bw[ACTIVE_CTX].sum_ab,
-		bus_node->node_bw[ACTIVE_CTX].util_used,
-		bus_node->node_bw[ACTIVE_CTX].vrail_used);
-	trace_printk(
-	"Max_Slp_IB %llu Sum_Slp_AB %lluSlp_Util_fact %d Slp_Vrail_comp %d\n",
 		bus_node->node_bw[DUAL_CTX].max_ib,
 		bus_node->node_bw[DUAL_CTX].sum_ab,
 		bus_node->node_bw[DUAL_CTX].util_used,
@@ -523,7 +504,8 @@ exit_disable_node_qos_clk:
 	return ret;
 }
 
-static int msm_bus_enable_node_qos_clk(struct msm_bus_node_device_type *node)
+static int msm_bus_enable_node_qos_clk(struct msm_bus_node_device_type *node,
+					bool *no_defer)
 {
 	struct msm_bus_node_device_type *bus_node = NULL;
 	int i;
@@ -535,6 +517,13 @@ static int msm_bus_enable_node_qos_clk(struct msm_bus_node_device_type *node)
 		goto exit_enable_node_qos_clk;
 	}
 	bus_node = to_msm_bus_node(node->node_info->bus_device);
+
+	if (!bus_node->num_node_qos_clks) {
+		MSM_BUS_DBG("%s: Num of clks is zero\n", __func__);
+		ret = -EINVAL;
+		*no_defer = true;
+		goto exit_enable_node_qos_clk;
+	}
 
 	for (i = 0; i < bus_node->num_node_qos_clks; i++) {
 		if (!bus_node->node_qos_clks[i].enable_only_clk) {
@@ -641,15 +630,16 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 
 			if (node_dev->ap_owned &&
 				(node_dev->node_info->qos_params.mode) != -1) {
+				bool no_defer = false;
 
 				if (bus_node_info->fabdev->bypass_qos_prg)
 					goto exit_init_qos;
 
-				ret = msm_bus_enable_node_qos_clk(node_dev);
+				ret = msm_bus_enable_node_qos_clk(node_dev, &no_defer);
 				if (ret < 0) {
 					MSM_BUS_DBG("Can't Enable QoS clk %d\n",
 					node_dev->node_info->id);
-					node_dev->node_info->defer_qos = true;
+					node_dev->node_info->defer_qos = !no_defer;
 					goto exit_init_qos;
 				}
 

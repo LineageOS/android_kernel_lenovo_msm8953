@@ -96,6 +96,38 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
 
+static atomic_t __su_instances;
+
+int su_instances(void)
+{
+	return atomic_read(&__su_instances);
+}
+
+bool su_running(void)
+{
+	return su_instances() > 0;
+}
+
+bool su_visible(void)
+{
+	kuid_t uid = current_uid();
+	if (su_running())
+		return true;
+	if (uid_eq(uid, GLOBAL_ROOT_UID) || uid_eq(uid, GLOBAL_SYSTEM_UID))
+		return true;
+	return false;
+}
+
+void su_exec(void)
+{
+	atomic_inc(&__su_instances);
+}
+
+void su_exit(void)
+{
+	atomic_dec(&__su_instances);
+}
+
 const char *task_event_names[] = {"PUT_PREV_TASK", "PICK_NEXT_TASK",
 				  "TASK_WAKE", "TASK_MIGRATE", "TASK_UPDATE",
 				"IRQ_UPDATE"};
@@ -3817,6 +3849,8 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 		dst_nt_curr_runnable_sum = &rq->nt_curr_runnable_sum;
 		src_nt_prev_runnable_sum = &cpu_time->nt_prev_runnable_sum;
 		dst_nt_prev_runnable_sum = &rq->nt_prev_runnable_sum;
+	} else {
+		return;
 	}
 
 	*src_curr_runnable_sum -= p->ravg.curr_window;
