@@ -41,7 +41,7 @@
 		ramoops_mem: ramoops_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x1343e000 0x0 0x80000>;
+			reg = <0 0x8ee00000 0x0 0x80000>;
 		};
 	};
 
@@ -55,7 +55,8 @@
 		compatible = "ramoops";
 		status = "ok";
 
-		android,ramoops-buffer-start = <0x1343e000>;
+		/* This is tacked at the end of wcnss_fw_region@0 */
+		android,ramoops-buffer-start = <0x8ee00000>;
 		android,ramoops-buffer-size = <0x80000>;
 		android,ramoops-console-size = <0x40000>;
 		android,ramoops-pmsg-size = <0x20000>;
