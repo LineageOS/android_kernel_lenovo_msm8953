@@ -291,7 +291,7 @@
 			gpios = <&tlmm 86 0x1>;
 			linux,input-type = <1>;
 			linux,code = <249>;
-			debounce-interval = <15>;
+			debounce-interval = <0>;
 		};
 	};
 
