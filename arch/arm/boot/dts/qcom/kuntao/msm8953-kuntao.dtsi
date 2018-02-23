@@ -289,8 +289,8 @@
 		one_key_low_power {
 			label = "onekeylowpower";
 			gpios = <&tlmm 86 0x1>;
-			linux,input-type = <1>;
-			linux,code = <249>;
+			linux,input-type = <5>;
+			linux,code = <0x13>;
 			debounce-interval = <15>;
 		};
 	};
