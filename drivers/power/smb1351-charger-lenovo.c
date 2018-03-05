@@ -1208,7 +1208,7 @@ static int smb1351_fastchg_hv_current_set(struct smb1351_charger *chip,
 {
 	int rc;
 
-	pr_info("set hv fastchg current mA=%d-target fast max %d\n", fastchg_current, chip->target_fastchg_current_max_ma);
+	pr_debug("set hv fastchg current mA=%d-target fast max %d\n", fastchg_current, chip->target_fastchg_current_max_ma);
 
 	/*
 	 * fast chg current could not support less than 1000mA
@@ -2411,7 +2411,7 @@ static bool smb1351_attempt_enable_parallel_slave(
 	if (smb1351_get_prop_charge_type(chip) != POWER_SUPPLY_CHARGE_TYPE_FAST
 		&& (smb1351_get_prop_batt_present(chip)
 			|| chip->parallel.slave_icl_ma == 0)) {
-		pr_info("Not in fastchg mode, disable parallel!\n");
+		pr_debug("Not in fastchg mode, disable parallel!\n");
 		return false;
 	}
 	/* If battery health NOT good */
@@ -4485,7 +4485,7 @@ static int smb1351_update_usb_supply_icl(struct smb1351_charger *chip)
 		break;
 	}
 	chip->usb_psy_ma = icl;
-	pr_info("type = %d, icl = %d\n", type, icl);
+	pr_debug("type = %d, icl = %d\n", type, icl);
 
 	return rc;
 }
@@ -5380,7 +5380,7 @@ static int smb1351_jeita_check_lenovo(struct smb1351_charger *chip, int temp)
 {
 	int health;
 
-	pr_info("temp %d cool %d warm %d\n", temp, chip->batt_cool_decidegc, chip->batt_warm_decidegc);
+	pr_debug("temp %d cool %d warm %d\n", temp, chip->batt_cool_decidegc, chip->batt_warm_decidegc);
 
 	if (temp <= chip->batt_cold_decidegc)
 		health = POWER_SUPPLY_HEALTH_COLD;
@@ -5418,7 +5418,7 @@ static void smb1351_heatbeat_work(struct work_struct *work)
 		smb1351_get_bms_property(chip, POWER_SUPPLY_PROP_CAPACITY, &soc);
 		smb1351_get_bms_property(chip, POWER_SUPPLY_PROP_VOLTAGE_NOW, &vol);
 		smb1351_get_bms_property(chip, POWER_SUPPLY_PROP_CURRENT_NOW, &cur);
-		pr_info(" %s, chg state 0x%x, soc %d, vbat %d, cur %d, vbus %d, battemp %d, btemp %d, ctemp %d\n",
+		pr_debug(" %s, chg state 0x%x, soc %d, vbat %d, cur %d, vbus %d, battemp %d, btemp %d, ctemp %d\n",
 				dev_name(chip->dev), state, soc, vol, cur, vbus_uv, temp_bat, temp_b, temp_c);
 
 		health = smb1351_jeita_check_lenovo(chip, temp_bat);
@@ -5433,7 +5433,7 @@ static void smb1351_heatbeat_work(struct work_struct *work)
 			smb1351_usbin_uv_handler(chip, 1);
 		}
 	} else
-		pr_info(" %s, chg state 0x%x\n", dev_name(chip->dev), state);
+		pr_debug(" %s, chg state 0x%x\n", dev_name(chip->dev), state);
 
 	schedule_delayed_work(&chip->heatbeat_work, (HZ * 10));
 }
