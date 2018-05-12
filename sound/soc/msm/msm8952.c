@@ -9,7 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
@@ -91,6 +90,15 @@ static int msm8952_wsa_switch_event(struct snd_soc_dapm_widget *w,
 extern int msm8x16_quin_mi2s_clocks(bool enable);
 #endif
 
+#if defined(CONFIG_SPEAKER_EXT_PA)
+int msm8x16_spk_ext_pa_ctrl(struct msm8916_asoc_mach_data *pdatadata, bool value);
+#endif
+#if defined(CONFIG_SPEAKER_HEADPHONE_SWITCH)
+extern int msm8x16_hs_ext_pa_ctrl(struct msm8916_asoc_mach_data *pdatadata, bool value);
+#endif
+#if defined(CONFIG_RECEIVER_EXT_PA)
+extern int msm8x16_rec_ext_pa_ctrl(struct msm8916_asoc_mach_data *pdatadata, bool value);
+#endif
 /*
  * Android L spec
  * Need to report LINEIN
@@ -108,6 +116,10 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.key_code[1] = KEY_VOLUMEUP,
 	.key_code[2] = KEY_VOLUMEDOWN,
 	.key_code[3] = KEY_VOICECOMMAND,
+#elif defined CONFIG_MACH_LENOVO_TB8703
+	.key_code[1] = KEY_VOLUMEUP,
+        .key_code[2] = KEY_VOLUMEDOWN,
+        .key_code[3] = 0,
 #else
 	.key_code[1] = KEY_VOICECOMMAND,
 	.key_code[2] = KEY_VOLUMEUP,
@@ -279,12 +291,68 @@ int is_ext_spk_gpio_support(struct platform_device *pdev,
 	}
 	return 0;
 }
+#if defined(CONFIG_SPEAKER_EXT_PA)
+int msm8x16_spk_ext_pa_ctrl(struct msm8916_asoc_mach_data *pdatadata, bool value)
+{
+	struct msm8916_asoc_mach_data *pdata = pdatadata; //snd_soc_card_get_drvdata(data);
+	bool on_off = value;
+    //bool is_hphl_enable = (snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_RX_HPH_L_TEST) & 0x04);
+    //bool is_hphr_enable = (snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_RX_HPH_R_TEST) & 0x04);
+	int ret = 0;
+
+	pr_debug("%s, spk_ext_pa_l_gpio=%d, spk_ext_pa_r_gpio=%d,  on_off=%d\n",
+                    __func__, pdata->spk_ext_pa_l_gpio, pdata->spk_ext_pa_r_gpio, on_off);
+	if (gpio_is_valid(pdata->spk_ext_pa_l_gpio) && gpio_is_valid(pdata->spk_ext_pa_r_gpio)) {
+		if (on_off) {
+            //gpio_direction_output(pdata->spk_ext_pa_gpio_lc, 1);
+#if  defined(CONFIG_SPEAKER_EXT_PA_AW8738)// Use mode 2 for project P3585
+			pr_debug("At %d In (%s),set pa\n",__LINE__, __FUNCTION__);
+			gpio_set_value_cansleep(pdata->spk_ext_pa_l_gpio, false);
+            gpio_set_value_cansleep(pdata->spk_ext_pa_r_gpio, false);
+			mdelay(1);
+			gpio_set_value_cansleep(pdata->spk_ext_pa_l_gpio, true);
+            gpio_set_value_cansleep(pdata->spk_ext_pa_r_gpio, true);
+			udelay(2);
+			gpio_set_value_cansleep(pdata->spk_ext_pa_l_gpio, false);
+            gpio_set_value_cansleep(pdata->spk_ext_pa_r_gpio, false);
+			udelay(2);
+
+#endif
+            //if (is_hphl_enable)
+            gpio_set_value_cansleep(pdata->spk_ext_pa_l_gpio, true);
+            //if (is_hphr_enable)
+            gpio_set_value_cansleep(pdata->spk_ext_pa_r_gpio, true);
+			msleep(50);
+
+		}
+		else {
+			gpio_set_value_cansleep(pdata->spk_ext_pa_l_gpio, false);
+            gpio_set_value_cansleep(pdata->spk_ext_pa_r_gpio, false);
+		}
+	}
+	else
+	{
+		pr_info("%s, error\n", __func__);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+#endif
 
 static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 {
 	struct snd_soc_card *card = codec->component.card;
 	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 	int ret;
+#if defined(CONFIG_SPEAKER_EXT_PA)
+	if (!msm8x16_spk_ext_pa_ctrl(pdata, enable))
+	    return 0;
+	else {
+	    pr_err("%s: Invalid gpio: %d\n", __func__,pdata->spk_ext_pa_gpio);
+	    return false;
+	}
+#endif
 
 	if (!gpio_is_valid(pdata->spk_ext_pa_gpio)) {
 		pr_err("%s: Invalid gpio: %d\n", __func__,
@@ -1751,6 +1819,8 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(msm8952_wcd_cal)->X) = (Y))
 #ifdef CONFIG_MACH_LENOVO_KUNTAO
 	S(v_hs_max, 1700);
+#elif defined CONFIG_MACH_LENOVO_TB8703
+	S(v_hs_max, 1600);
 #else
 	S(v_hs_max, 1500);
 #endif
@@ -1787,6 +1857,17 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 	btn_high[3] = 450;
 	btn_low[4] = 450;
 	btn_high[4] = 450;
+#elif defined CONFIG_MACH_LENOVO_TB8703
+	btn_low[0] = 75;
+	btn_high[0] = 75;
+	btn_low[1] = 200;
+	btn_high[1] = 200;
+	btn_low[2] = 450;
+	btn_high[2] = 450;
+	btn_low[3] = 500;
+	btn_high[3] = 500;
+	btn_low[4] = 500;
+	btn_high[4] = 500;
 #else
 	btn_low[0] = 75;
 	btn_high[0] = 75;
@@ -2987,6 +3068,42 @@ void msm8952_disable_mclk(struct work_struct *work)
 	mutex_unlock(&pdata->cdc_mclk_mutex);
 }
 
+#if defined(CONFIG_SPEAKER_HEADPHONE_SWITCH)
+static void msm8x16_hs_ext_pa_delayed(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct msm8916_asoc_mach_data *pdata;
+
+	dwork = to_delayed_work(work);
+	pdata = container_of(dwork, struct msm8916_asoc_mach_data, hs_gpio_work);
+	pr_debug("At %d In (%s),enter,pdata->hs_is_on=%d\n",__LINE__, __FUNCTION__,pdata->hs_is_on);
+
+	if(pdata->hs_is_on == 0)
+	{
+	pr_debug("At %d In (%s),open pa\n",__LINE__, __FUNCTION__);
+	msm8x16_hs_ext_pa_ctrl(pdata, true);
+	pdata->hs_is_on = 2;
+	}
+}
+#endif
+#if defined(CONFIG_RECEIVER_EXT_PA)
+static void msm8x16_rec_ext_pa_delayed(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct msm8916_asoc_mach_data *pdata;
+
+	dwork = to_delayed_work(work);
+	pdata = container_of(dwork, struct msm8916_asoc_mach_data, rec_gpio_work);
+	pr_debug("At %d In (%s),enter,pdata->rec_is_on=%d\n",__LINE__, __FUNCTION__,pdata->rec_is_on);
+
+	if(pdata->rec_is_on == 0)
+	{
+	pr_debug("At %d In (%s),open rec\n",__LINE__, __FUNCTION__);
+	msm8x16_rec_ext_pa_ctrl(pdata, true);
+	pdata->rec_is_on = 2;
+	}
+}
+#endif
 static bool msm8952_swap_gnd_mic(struct snd_soc_codec *codec)
 {
 	struct snd_soc_card *card = codec->component.card;
@@ -3034,6 +3151,117 @@ static void msm8952_dt_parse_cap_info(struct platform_device *pdev,
 		 MICBIAS_EXT_BYP_CAP : MICBIAS_NO_EXT_BYP_CAP);
 }
 
+#if defined(CONFIG_SPEAKER_EXT_PA)		// xuke @ 20141112	Support external PA for speaker.
+static int msm8x16_setup_spk_ext_pa(struct platform_device *pdev, struct msm8916_asoc_mach_data *pdata)
+{
+	//struct pinctrl *pinctrl;
+	//int ret;
+
+	pdata->spk_ext_pa_l_gpio = of_get_named_gpio(pdev->dev.of_node,
+					"qcom,spk_ext_pa_l", 0);
+    pdata->spk_ext_pa_r_gpio = of_get_named_gpio(pdev->dev.of_node,
+					"qcom,spk_ext_pa_r", 0);
+	if (pdata->spk_ext_pa_l_gpio < 0 || pdata->spk_ext_pa_r_gpio < 0) {
+		pr_debug("%s, spk_ext_pa_gpio_lc not exist!\n", __func__);
+	} else {
+		pr_debug("%s, spk_ext_pa_l_gpio=%d  spk_ext_pa_r_gpio=%d\n", __func__, pdata->spk_ext_pa_l_gpio, pdata->spk_ext_pa_r_gpio);
+        if (!gpio_is_valid(pdata->spk_ext_pa_l_gpio))
+		{
+			pr_err("%s: Invalid external left speaker gpio: %d",
+				__func__, pdata->spk_ext_pa_l_gpio);
+			return -EINVAL;
+		} else {
+            if (gpio_request(pdata->spk_ext_pa_l_gpio, "spk_ext_pa_l_gpio")){
+                printk("spk_ext_pa_l_gpio request failed\n");
+                return -EINVAL;
+            }
+            if (gpio_direction_output(pdata->spk_ext_pa_l_gpio, 0)) {
+                printk("set_direction for spk_ext_pa_l_gpio failed\n");
+                return -EINVAL;
+            }
+        }
+
+        if (!gpio_is_valid(pdata->spk_ext_pa_r_gpio))
+		{
+			pr_err("%s: Invalid external right speaker gpio: %d",
+				__func__, pdata->spk_ext_pa_r_gpio);
+			return -EINVAL;
+		} else {
+		    if (gpio_request(pdata->spk_ext_pa_r_gpio, "spk_ext_pa_r_gpio")){
+                printk("spk_ext_pa_r_gpio request failed\n");
+                return -EINVAL;
+            }
+            if (gpio_direction_output(pdata->spk_ext_pa_r_gpio, 0)) {
+                printk("set_direction for spk_ext_pa_r_gpio failed\n");
+                return -EINVAL;
+            }
+        }
+
+	}
+	return 0;
+}
+#endif
+#if defined(CONFIG_SPEAKER_HEADPHONE_SWITCH)
+static int msm8x16_setup_hs_ext_pa(struct platform_device *pdev, struct msm8916_asoc_mach_data *pdata)
+{
+	//struct pinctrl *pinctrl;
+	int ret;
+
+    pdata->spk_hs_switch_gpio = of_get_named_gpio_flags(pdev->dev.of_node, "qcom,spk_hs_switch",
+				0, NULL);
+	if (pdata->spk_hs_switch_gpio < 0) {
+		pr_debug("%s, spk_hs_switch_gpio not exist!\n", __func__);
+	} else {
+		pr_debug("%s, spk_hs_switch_gpio=%d\n", __func__, pdata->spk_hs_switch_gpio);
+        if (gpio_is_valid(pdata->spk_hs_switch_gpio))
+		{
+			pr_debug("%s, spk_hs_switch_gpio request\n", __func__);
+			ret = gpio_request(pdata->spk_hs_switch_gpio, "ext/spk_hs_switch-GPIO");
+			if (ret != 0) {
+				pr_debug("Failed to request /ext/spk_hs_switch-GPIO: %d\n", ret);
+				return -EINVAL;
+			}
+            gpio_direction_output(pdata->spk_hs_switch_gpio, 0);
+			pr_debug("At %d In (%s),set spk_hs_switch_gpio to low\n",__LINE__, __FUNCTION__);//check run to here ?
+			gpio_set_value_cansleep(pdata->spk_hs_switch_gpio, 0);
+			msleep(5);
+		}
+	}
+	return 0;
+}
+
+#endif
+#if defined(CONFIG_RECEIVER_EXT_PA)
+static int msm8x16_setup_rec_ext_pa(struct platform_device *pdev, struct msm8916_asoc_mach_data *pdata)
+{
+    //struct pinctrl *pinctrl;
+	int ret;
+
+	pdata->spk_rec_switch_gpio_lc = of_get_named_gpio_flags(pdev->dev.of_node, "qcom,spk_rec_switch",
+				0, NULL);
+	if (pdata->spk_rec_switch_gpio_lc < 0) {
+		pr_debug("%s, spk_rec_switch_gpio_lc not exist!\n", __func__);
+	} else {
+		pr_debug("%s, spk_rec_switch_gpio_lc=%d\n", __func__, pdata->spk_rec_switch_gpio_lc);
+
+		if (gpio_is_valid(pdata->spk_rec_switch_gpio_lc))
+		{
+			pr_debug("%s, spk_rec_switch_gpio_lc request\n", __func__);
+			ret = gpio_request(pdata->spk_rec_switch_gpio_lc, "ext/spk_rec_switch-GPIO");
+			if (ret != 0) {
+				pr_debug("Failed to request /spk/rec switch-GPIO: %d\n", ret);
+				return -EINVAL;
+			}
+            gpio_direction_output(pdata->spk_rec_switch_gpio_lc, 1);
+			pr_debug("At %d In (%s),set spk_rec_switch_gpio_lc to high\n",__LINE__, __FUNCTION__);//check run to here ?
+			gpio_set_value_cansleep(pdata->spk_rec_switch_gpio_lc, 1);
+			msleep(5);
+		}
+
+	}
+	return 0;
+}
+#endif
 
 static int msm8952_populate_dai_link_component_of_node(
 		struct snd_soc_card *card)
@@ -3483,7 +3711,24 @@ parse_mclk_freq:
 	pdata->lb_mode = false;
 
 	msm8952_dt_parse_cap_info(pdev, pdata);
-
+#if defined(CONFIG_SPEAKER_EXT_PA)
+	pr_debug("At %d In (%s),will run msm8x16_setup_spk_ext_pa\n",__LINE__, __FUNCTION__);
+	ret = msm8x16_setup_spk_ext_pa(pdev, pdata);
+	if (ret)
+		pr_debug("%s, msm8x16_setup_spk_ext_pa error!\n", __func__);
+#endif
+#if defined(CONFIG_SPEAKER_HEADPHONE_SWITCH)
+    pr_debug("At %d In (%s),will run msm8x16_setup_hs_ext_pa\n",__LINE__, __FUNCTION__);
+	ret = msm8x16_setup_hs_ext_pa(pdev, pdata);
+	if (ret)
+		pr_debug("%s, msm8x16_setup_hs_ext_pa error!\n", __func__);
+#endif
+#if defined(CONFIG_RECEIVER_EXT_PA)
+	pr_debug("At %d In (%s),will run msm8x16_setup_rec_ext_pa\n",__LINE__, __FUNCTION__);
+	ret = msm8x16_setup_rec_ext_pa(pdev, pdata);
+	if (ret)
+		pr_debug("%s, msm8x16_setup_rec_ext_pa error!\n", __func__);
+#endif
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, pdata);
@@ -3492,6 +3737,13 @@ parse_mclk_freq:
 		goto err;
 	/* initialize timer */
 	INIT_DELAYED_WORK(&pdata->disable_mclk_work, msm8952_disable_mclk);
+#if defined(CONFIG_SPEAKER_HEADPHONE_SWITCH)
+    INIT_DELAYED_WORK(&pdata->hs_gpio_work, msm8x16_hs_ext_pa_delayed);
+	//INIT_DELAYED_WORK(&pdata->pa_gpio_work_close, msm8x16_spk_ext_pa_close);
+#endif
+#if defined(CONFIG_RECEIVER_EXT_PA)
+	INIT_DELAYED_WORK(&pdata->rec_gpio_work, msm8x16_rec_ext_pa_delayed);
+#endif
 	mutex_init(&pdata->cdc_mclk_mutex);
 	atomic_set(&pdata->mclk_rsc_ref, 0);
 	if (card->aux_dev) {
@@ -3537,6 +3789,21 @@ err:
 			kfree(msm8952_codec_conf[i].name_prefix);
 		}
 	}
+
+    #if defined(CONFIG_SPEAKER_EXT_PA)
+    if (gpio_is_valid(pdata->spk_ext_pa_l_gpio))
+       gpio_free(pdata->spk_ext_pa_l_gpio);
+    if (gpio_is_valid(pdata->spk_ext_pa_r_gpio))
+       gpio_free(pdata->spk_ext_pa_r_gpio);
+    #endif
+    #if defined(CONFIG_SPEAKER_HEADPHONE_SWITCH)
+	if (gpio_is_valid(pdata->spk_hs_switch_gpio))
+		gpio_free(pdata->spk_hs_switch_gpio);
+    #endif
+    #if defined(CONFIG_RECEIVER_EXT_PA)
+	if (gpio_is_valid(pdata->spk_rec_switch_gpio_lc))
+		gpio_free(pdata->spk_rec_switch_gpio_lc);
+    #endif
 err1:
 	devm_kfree(&pdev->dev, pdata);
 	return ret;
