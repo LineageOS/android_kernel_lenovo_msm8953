@@ -1,0 +1,83 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&i2c_3 {
+	status = "ok";
+		himax-ts@48 {
+		compatible = "himax,852xf";
+		reg = <0x48>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+						"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active &ts_pwr_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend &ts_pwr_suspend>;
+		pinctrl-2 = <&ts_release>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <65 0x2>;
+		vcc_i2c-supply = <&pm8953_l6>;
+		himax,panel-coords   	= <0 1200 0 1920>;
+		himax,display-coords 	= <0 1200 0 1920>;
+		himax,irq-gpio = <&tlmm 65 0x00>;
+		himax,rst-gpio = <&tlmm 64 0x00>;
+		himax,3v3-gpio = <&tlmm 131 0x00>;
+		report_type = <1>;
+	};
+};
+
+&i2c_5 { /* BLSP2 QUP1 (NFC) */
+	/delete-node/ nq@28;
+};
+
+&i2c_8 { /* BLSP2 QUP4 */
+	iqs263@44 { //Capacitive Touch Controller Driver
+		compatible = "azopteq,iqs263";
+		reg = <0x44>;
+		
+		pinctrl-names = "default";
+		pinctrl-0 = <&iqs263_irq_config>;
+		
+		vdd-supply = <&pm8953_l5>;
+		vio-supply = <&pm8953_l5>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <48 0x2>;
+		azopteq,irq-gpio =<&tlmm 48 0x2>;
+	};
+};
+
+&ext_codec {
+	status = "disabled";
+};
+
+&wsa881x_i2c_e {
+	status = "disabled";
+};
+
+&wsa881x_i2c_44 {
+	status = "disabled";
+};
+
+&wsa881x_i2c_f {
+	status = "disabled";
+};
+
+&wsa881x_i2c_45 {
+	status = "disabled";
+};
+
+&soc {
+	/delete-node/ hbtp;
+};
+
+&i2c_2 {
+	status = "disabled";
+};
+

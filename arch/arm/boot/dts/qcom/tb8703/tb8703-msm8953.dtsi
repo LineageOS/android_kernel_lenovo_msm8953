@@ -1,0 +1,104 @@
+
+/ {
+
+	aliases {
+		/* smdtty devices */
+		i2c8 = &i2c_8;
+	};
+
+
+};
+
+
+&soc {
+
+	spi_3: spi@78b7000 { /* BLSP1 QUP3 */
+		status = "disabled";
+	};
+
+	i2c_2: i2c@78b6000 { /* BLSP1 QUP2 */
+		/* DSI_TO_HDMI I2C configuration */
+		/delete-node/ adv7533@39;
+	};
+
+	i2c_8: i2c@7af8000 { /* BLSP2 QUP4 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0x7af8000 0x600>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 302 0>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp2_qup4_i2c_apps_clk>;
+
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_8_active>;
+		pinctrl-1 = <&i2c_8_sleep>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+		qcom,master-id = <84>;
+		dmas = <&dma_blsp2 10 64 0x20000020 0x20>,
+			<&dma_blsp2 11 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+	};
+
+
+	sn_fuse: snfuse@0xA4128 {
+	    compatible = "qcom,sn-fuse";
+	    reg = <0xA4128 0x4>,
+		  	  <0xA6034 0x4>,
+		      <0xA0138 0x4>;
+	    reg-names = "sn-base","fuse-state", "provision-state";
+	};
+
+	qusb_phy: qusb@79000 {
+		USB3_GDSC-supply = <&gdsc_usb30>;
+
+		qcom,qusb-phy-init-seq = <0xF8 0x80
+					0x93 0x84	//0xb3->0x93
+					0x83 0x88
+					0x15 0x8C	//0xc0->0x15
+					0x14 0x9C
+					0x30 0x08
+					0x79 0x0C
+					0x21 0x10
+					0x00 0x90
+					0x9F 0x1C
+					0x00 0x18>;
+
+		clocks = <&clock_gcc clk_bb_clk1>,
+			 <&clock_gcc clk_gcc_qusb_ref_clk>,
+			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb_clk>,
+			 <&clock_gcc clk_gcc_qusb2_phy_reset>,
+			 <&clock_gcc clk_gcc_pcnoc_usb3_axi_clk>,
+			 <&clock_gcc clk_gcc_usb30_master_clk>;
+
+		clock-names = "ref_clk_src", "ref_clk", "cfg_ahb_clk",
+			      "phy_reset", "iface_clk", "core_clk";
+
+	};
+
+};
+
+
+
+&pm8953_mpps {
+	mpp@a100 {
+		qcom,ain-route = <3>; /* AMUX 6 */
+	};
+
+	/delete-node/ mpp@a300;
+};
+
+&pm8953_vadc {
+	chan@11 {
+		label = "case_therm";
+	};
+
+	/delete-node/chan@13;
+};
+

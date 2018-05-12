@@ -21,4 +21,10 @@ config MACH_LENOVO_KUNTAO
 	help
 	  Support for Lenovo P2 (kuntao)
 
+config MACH_LENOVO_TB8703
+	bool "TB8703 board"
+	select MACH_LENOVO_MSM8953
+	help
+	  Support for Lenovo Tab3 8 Plus (TB8703)
+
 endmenu
