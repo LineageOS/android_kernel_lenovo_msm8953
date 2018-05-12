@@ -228,6 +228,20 @@ struct msm8916_asoc_mach_data {
 	int ext_pa;
 	int us_euro_gpio;
 	int spk_ext_pa_gpio;
+#if defined(CONFIG_SPEAKER_EXT_PA)
+	int spk_ext_pa_l_gpio;
+    int spk_ext_pa_r_gpio;
+#endif
+#if defined(CONFIG_SPEAKER_HEADPHONE_SWITCH)
+    int spk_hs_switch_gpio;
+    struct delayed_work hs_gpio_work;
+    unsigned char hs_is_on;
+#endif
+#if defined(CONFIG_RECEIVER_EXT_PA)
+	int spk_rec_switch_gpio_lc;
+    struct delayed_work rec_gpio_work;
+    unsigned char rec_is_on;
+#endif
 	int mclk_freq;
 	int lb_mode;
 	int afe_clk_ver;
