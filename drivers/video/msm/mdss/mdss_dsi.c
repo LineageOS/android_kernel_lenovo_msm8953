@@ -44,6 +44,9 @@ static struct mdss_dsi_data *mdss_dsi_res;
 #define DSI_ENABLE_PC_LATENCY PM_QOS_DEFAULT_VALUE
 
 static struct pm_qos_request mdss_dsi_pm_qos_request;
+#ifdef CONFIG_MACH_LENOVO_TB8703
+extern int mdss_dsi_panel_lcden_gpio_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int on);
+#endif
 
 static void mdss_dsi_pm_qos_add_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -439,6 +442,9 @@ int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
+#ifdef CONFIG_MACH_LENOVO_TB8703
+	mdss_dsi_panel_lcden_gpio_ctrl(ctrl_pdata, power_state);
+#endif
 
 	/*
 	 * If a dynamic mode switch is pending, the regulators should not
