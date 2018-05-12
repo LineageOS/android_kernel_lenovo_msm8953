@@ -337,6 +337,10 @@
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
+#define KEY_CAPSENSOR_IQS263_CS0 0x278
+#define KEY_CAPSENSOR_IQS263_CS1 0x279
+#define KEY_CAPSENSOR_IQS263_CS2 0x280
+
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
 #define BTN_MISC		0x100

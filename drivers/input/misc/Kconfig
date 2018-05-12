@@ -839,4 +839,14 @@ config DOUBLE_TAP
 	help
 	 If you say yes here, you get support Bosch double tap sensor function
 
+config INPUT_IQS263
+	tristate "IQS263 Capacitive Touch Controller Driver"
+	help
+	  Say Y here if you want to support iqs263 touch sensor.
+
+	  You should select a bus connection too.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called iqs263.
+
 endif
