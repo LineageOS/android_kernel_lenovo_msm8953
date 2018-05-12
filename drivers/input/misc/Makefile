@@ -89,3 +89,4 @@ obj-$(CONFIG_INPUT_PIXART_OTS_PAT9125_SWITCH)	+= ots_pat9125/
 obj-$(CONFIG_STMVL53L0X)	+= vl53l0x/
 obj-$(CONFIG_SYNAPTICS_FINGERPRINT)	+= vfsSpiDrv.o
 obj-$(CONFIG_INPUT_IQS263)		+= iqs263.o
+obj-$(CONFIG_HALL)			+= hall.o
