@@ -1,0 +1,74 @@
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&spmi_bus {
+
+	qcom,pmi8950@2 {
+		pmi8950_charger: qcom,qpnp-smbcharger {
+			qcom,float-voltage-mv = <4350>;
+			qcom,thermal-mitigation = <1500 1100 900 700 0>;
+			/delete-property/ qcom,parallel-usb-min-current-ma;
+			/delete-property/ qcom,parallel-usb-9v-min-current-ma;
+			/delete-property/ qcom,parallel-allowed-lowering-ma;
+			qcom,override-usb-current;
+		};
+
+		pmi8950_fg: qcom,fg {
+			qcom,resume-soc = <99>;
+			qcom,resume-soc-raw = <254>;
+			qcom,fg-delta-soc = <1>;
+			qcom,fg-iterm-ma = <200>;
+			qcom,fg-chg-iterm-ma = <150>;
+			qcom,cold-bat-decidegc = <0>;
+			qcom,cool-bat-decidegc = <150>;
+			qcom,warm-bat-decidegc = <450>;
+			qcom,hot-bat-decidegc = <500>;
+
+			qcom,fg-memif@4400 {
+				qcom,cold-hot-jeita-hysteresis = <20 20>;
+			};
+		};
+
+
+		qcom,leds@a100 {
+			/delete-property/ label;
+		};
+	};
+
+	qcom,pmi8950@3 {
+		pmi8950_pwm: pwm@b000 {
+			status = "okay";
+			qcom,period = <1000000>;
+			qcom,lpg-dtest-line = <1>;
+			qcom,dtest-output = <1>;
+			qcom,pwm {
+				qcom,duty = <1000000>; //PWM duty time in microseconds
+				label = "pwm";
+			};
+		};
+
+		wled: qcom,leds@d800 {
+			/delete-property/ qcom,en-ext-pfet-sc-pro;
+		};
+
+		flash_led: qcom,leds@d300 {
+			pmi8950_flash0: qcom,flash_0 {
+				qcom,current = <1000>;
+			};
+
+		};
+
+		pmi_haptic: qcom,haptic@c000 {
+			qcom,vmax-mv = <2500>;
+		};
+	};
+};

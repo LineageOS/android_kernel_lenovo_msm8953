@@ -1,0 +1,29 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+&soc {
+	hall_switch {
+	       compatible = "hall-switch,och175";
+	       pinctrl-names = "hall_active","hall_suspend";
+	       pinctrl-0 = <&hall_int_active>;
+	       pinctrl-1 = <&hall_int_suspend>;
+	       //interrupt-parent = <&msm_gpio>;
+	       //interrupts = <0 107 3>;
+	       vdd-io-supply = <&pm8953_l6>;
+	       interrupt-names = "hall_irq";
+	       hall,irq-gpio = <&tlmm 13 0x2008>;
+	};
+
+};
+
