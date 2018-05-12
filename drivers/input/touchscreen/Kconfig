@@ -1183,4 +1183,36 @@ config TOUCHSCREEN_HIMAX_CHIPSET
 
 source "drivers/input/touchscreen/hxchipset/Kconfig"
 
+config TOUCHSCREEN_HIMAX_HX852XF
+	tristate "Analog Devices AD7879-1/AD7889-1 touchscreen interface"
+	help
+	  Say Y here if you want to support a touchscreen interface using
+	  the AD7879-1/AD7889-1 controller.
+
+	  You should select a bus connection too.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad7879.
+config TOUCHSCREEN_HIMAX_I2C
+	tristate "Analog Devices AD7879-1/AD7889-1 touchscreen interface"
+	help
+	  Say Y here if you want to support a touchscreen interface using
+	  the AD7879-1/AD7889-1 controller.
+
+	  You should select a bus connection too.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad7879.
+config CONFIG_TOUCHSCREEN_HIMAX_DEBUG
+	tristate "Analog Devices AD7879-1/AD7889-1 touchscreen interface"
+	help
+	  Say Y here if you want to support a touchscreen interface using
+	  the AD7879-1/AD7889-1 controller.
+
+	  You should select a bus connection too.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad7879.
+source "drivers/input/touchscreen/hx852xf/Kconfig"
+
 endif
