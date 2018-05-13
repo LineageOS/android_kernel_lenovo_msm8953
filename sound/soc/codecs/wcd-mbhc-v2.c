@@ -517,7 +517,7 @@ int wcd_mbhc_get_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	*zr = mbhc->zr;
 
 	if (*zl && *zr)
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		if (*zl > 20000 && *zr > 20000) {
 			pr_debug("%s headset type is selfie stick\n", __func__);
 			return 1;
@@ -840,7 +840,7 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 						SND_JACK_HEADPHONE);
 			if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADSET)
 				wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADSET);
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		if (mbhc->impedance_detect) {
 			int impe;
 			if (mbhc->impedance_detect &&
@@ -1117,7 +1117,7 @@ static void wcd_enable_mbhc_supply(struct wcd_mbhc *mbhc,
 							WCD_MBHC_EN_CS);
 		} else if (plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		} else if (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) {
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
 #endif
@@ -1191,7 +1191,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	int rc, spl_hs_count = 0;
 	int cross_conn;
 	int try = 0;
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	int apple_detect_count = 0;
 #endif
 
@@ -1388,7 +1388,7 @@ correct_plug_type:
 			pr_debug("%s: cable is extension cable\n", __func__);
 			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
 			wrk_complete = true;
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 			if (apple_detect_count == 5)
 				break;
 			++apple_detect_count;
@@ -1438,7 +1438,7 @@ correct_plug_type:
 
 	if (plug_type == MBHC_PLUG_TYPE_HIGH_HPH &&
 		(!det_extn_cable_en)) {
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		// it will report as selfie stick, althouth type is GND_MIC_SWAP
 		// in the wcd_mbhc_find_plug_and_report, impedance will be read
 		// to judge if it is a selfie stick
@@ -1450,7 +1450,7 @@ correct_plug_type:
 					__func__, plug_type);
 			plug_type = MBHC_PLUG_TYPE_HEADSET;
 			goto report;
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		} else {
 			if (mbhc->impedance_detect) {
 				int impe;
@@ -1583,7 +1583,7 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 
 	if ((mbhc->current_plug == MBHC_PLUG_TYPE_NONE) &&
 	    detection_type) {
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		/* delay detection for debounce */
 		msleep(500);
 #endif
@@ -2520,7 +2520,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		}
 
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		ret = snd_jack_set_key(mbhc->button_jack.jack,
 				       SND_JACK_BTN_1,
 				       KEY_VOLUMEUP);

@@ -1371,7 +1371,7 @@ done:
 	return ret;
 }
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 int msm8x16_quin_mi2s_clocks(bool enable)
 {
 	union afe_port_config port_config;
@@ -2621,7 +2621,7 @@ void afe_set_cal_mode(u16 port_id, enum afe_cal_mode afe_cal_mode)
 	this_afe.afe_cal_mode[port_index] = afe_cal_mode;
 }
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 extern atomic_t quin_mi2s_clk_ref;
 #endif
 int afe_port_start(u16 port_id, union afe_port_config *afe_config,
@@ -2640,7 +2640,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		return ret;
 	}
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if ((port_id == AFE_PORT_ID_QUINARY_MI2S_RX) &&
 			(atomic_read(&quin_mi2s_clk_ref) >= 1))
 		return 0;

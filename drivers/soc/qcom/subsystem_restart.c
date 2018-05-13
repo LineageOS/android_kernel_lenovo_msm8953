@@ -1644,7 +1644,7 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	strlcpy(subsys->desc->fw_name, desc->name,
 			sizeof(subsys->desc->fw_name));
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (!strcmp(desc->name, "modem"))
 		subsys->restart_level = RESET_SUBSYS_COUPLED;
 #endif

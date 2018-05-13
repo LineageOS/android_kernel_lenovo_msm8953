@@ -33,7 +33,7 @@
 #include "../codecs/wsa881x-analog.h"
 #include <linux/regulator/consumer.h>
 #define DRV_NAME "msm8952-asoc-wcd"
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 #define LPASS_CSR_GP_IO_MUX_QUI_CTL  0xc052000
 #endif
 
@@ -73,7 +73,7 @@ static int mi2s_rx_bits_per_sample = 16;
 static int mi2s_rx_sample_rate = SAMPLING_RATE_48KHZ;
 
 static atomic_t quat_mi2s_clk_ref;
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 atomic_t quin_mi2s_clk_ref;
 #else
 static atomic_t quin_mi2s_clk_ref;
@@ -87,7 +87,7 @@ static int msm8952_mclk_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event);
 static int msm8952_wsa_switch_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event);
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 extern int msm8x16_quin_mi2s_clocks(bool enable);
 #endif
 
@@ -104,7 +104,7 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = false,
 	.key_code[0] = KEY_MEDIA,
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	.key_code[1] = KEY_VOLUMEUP,
 	.key_code[2] = KEY_VOLUMEDOWN,
 	.key_code[3] = KEY_VOICECOMMAND,
@@ -171,7 +171,7 @@ static struct afe_clk_set mi2s_rx_clk = {
 static struct afe_clk_set wsa_ana_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
 	Q6AFE_LPASS_CLK_ID_MCLK_1,
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KuNTAO
 	Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
 #else
 	Q6AFE_LPASS_OSR_CLK_9_P600_MHZ,
@@ -315,7 +315,7 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 	return 0;
 }
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 #define JACK_VTG_MIN_UV	2600000
 #define JACK_VTG_MAX_UV	3300000
 
@@ -379,7 +379,7 @@ int is_us_eu_switch_gpio_support(struct platform_device *pdev,
 		struct msm8916_asoc_mach_data *pdata)
 {
 	int ret;
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	int err;
 #endif
 
@@ -409,7 +409,7 @@ int is_us_eu_switch_gpio_support(struct platform_device *pdev,
 		mbhc_cfg.swap_gnd_mic = msm8952_swap_gnd_mic;
 	}
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	pdata->vdd = regulator_get(&pdev->dev, "jack-avdd");
 	if (!IS_ERR(pdata->vdd)) {
 		err = jack_regulator_configure(pdata, true);
@@ -653,7 +653,7 @@ static uint32_t get_mi2s_rx_clk_val(int port_id)
 	 *  channel count is used as 2
 	 */
 	if (is_mi2s_rx_port(port_id)) {
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		if (port_id == AFE_PORT_ID_QUINARY_MI2S_RX)
 			clk_val = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
 		else
@@ -683,7 +683,7 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
 				mi2s_rx_clk_v1.clk_val1 =
 						get_mi2s_rx_clk_val(port_id);
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 				mi2s_rx_clk_v1.clk_val2 =
 						Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
 #endif
@@ -702,7 +702,7 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
 				mi2s_tx_clk_v1.clk_val1 =
 						Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 				mi2s_tx_clk_v1.clk_val2 =
 						Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
 #endif
@@ -728,7 +728,7 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
 				mi2s_rx_clk_v1.clk_val1 =
 						Q6AFE_LPASS_IBIT_CLK_DISABLE;
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 				mi2s_rx_clk_v1.clk_val2 =
 						Q6AFE_LPASS_OSR_CLK_DISABLE;
 #endif
@@ -745,7 +745,7 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
 				mi2s_tx_clk_v1.clk_val1 =
 						Q6AFE_LPASS_IBIT_CLK_DISABLE;
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 				mi2s_tx_clk_v1.clk_val2 =
 						Q6AFE_LPASS_OSR_CLK_DISABLE;
 #endif
@@ -1593,7 +1593,7 @@ static void msm_quat_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	}
 }
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 static int msm8x16_quin_mi2s_clk_int_codec_mux(void)
 {
 	int ret = 0;
@@ -1749,7 +1749,7 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 		return NULL;
 
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(msm8952_wcd_cal)->X) = (Y))
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	S(v_hs_max, 1700);
 #else
 	S(v_hs_max, 1500);
@@ -1776,7 +1776,7 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 	 * 210-290 == Button 2
 	 * 360-680 == Button 3
 	 */
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	btn_low[0] = 100;
 	btn_high[0] = 100;
 	btn_low[1] = 200;
@@ -2837,7 +2837,7 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.stream_name = "Quinary MI2S Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.5",
 		.platform_name = "msm-pcm-routing",
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		.codec_dai_name = "msm-stub-tx",
 		.codec_name = "msm-stub-codec.1",
 #else
@@ -2876,7 +2876,7 @@ static struct snd_soc_dai_link msm8952_quin_dai_link[] = {
 		.stream_name = "Quinary MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.5",
 		.platform_name = "msm-pcm-routing",
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		.codec_dai_name = "msm-stub-rx",
 		.codec_name = "msm-stub-codec.1",
 #else

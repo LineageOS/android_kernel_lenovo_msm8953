@@ -79,7 +79,7 @@
 	_adc_val = (u8)((_current) * 100 / 976);	\
 }
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 #define FG_HEATBEAT_WORK
 #endif
 
@@ -2266,7 +2266,7 @@ static int get_prop_capacity(struct fg_chip *chip)
 		return MISSING_CAPACITY;
 
 	if (!chip->profile_loaded && !chip->use_otp_profile) {
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		static int shutdown_soc = -22;
 		int j;
 		u8 reg_soc[4];
@@ -6372,7 +6372,7 @@ fail:
 #define PROFILE_COMPARE_LEN		32
 #define THERMAL_COEFF_ADDR		0x444
 #define THERMAL_COEFF_OFFSET		0x2
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 #define BATTERY_PSY_WAIT_MS		1000
 #else
 #define BATTERY_PSY_WAIT_MS		2000

@@ -234,7 +234,7 @@ struct dwc3_msm {
 	enum usb_chg_state	chg_state;
 	int			pmic_id_irq;
 	enum dwc3_perf_mode     mode;
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	int 			usb_id_gpio;
 #endif
 	unsigned int		bus_vote;
@@ -280,7 +280,7 @@ struct dwc3_msm {
 	enum dwc3_perf_mode	curr_mode;
 };
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 static bool host_mode_disable;
 static bool host_id_state;
 static struct dwc3_msm *the_msm_dwc3;
@@ -1992,7 +1992,7 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 
 	if (!(reg & PWR_EVNT_LPM_IN_L2_MASK)) {
 		dev_err(mdwc->dev, "could not transition HS PHY to L2\n");
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	}
 #endif
 		dbg_event(0xFF, "PWR_EVNT_LPM",
@@ -2006,7 +2006,7 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 					&mdwc->resume_work, 0);
 			return -EBUSY;
 		}
-#ifndef CONFIG_MACH_LENOVO
+#ifndef CONFIG_MACH_LENOVO_KUNTAO
 	}
 #endif
 
@@ -2193,7 +2193,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 			|| mdwc->in_host_mode) {
 		enable_irq_wake(mdwc->hs_phy_irq);
 		enable_irq(mdwc->hs_phy_irq);
-#ifndef CONFIG_MACH_LENOVO
+#ifndef CONFIG_MACH_LENOVO_KUNTAO
 		if (mdwc->ss_phy_irq) {
 			enable_irq_wake(mdwc->ss_phy_irq);
 			enable_irq(mdwc->ss_phy_irq);
@@ -2721,7 +2721,7 @@ dwc3_msm_property_is_writeable(struct power_supply *psy,
 static char *dwc3_msm_pm_power_supplied_to[] = {
 	"battery",
 	"bms",
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	"ext-charger",
 #endif
 };
@@ -2738,7 +2738,7 @@ static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_REAL_TYPE,
 };
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 static int msm_otg_enable_gpio_pull(struct dwc3_msm *dwc3, int enable)
 {
 	int err = 0;
@@ -2862,7 +2862,7 @@ static irqreturn_t dwc3_pmic_id_irq(int irq, void *data)
 
 	/* If we can't read ID line state for some reason, treat it as float */
 	id = !!irq_read_line(irq);
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (gpio_is_valid(mdwc->usb_id_gpio))
 		id = gpio_get_value(mdwc->usb_id_gpio);
 #endif
@@ -3073,7 +3073,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	int ext_hub_reset_gpio;
 	u32 val;
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	msleep(600);
 #endif
 
@@ -3083,7 +3083,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mdwc->curr_mode = DWC3_PERF_INVALID;
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (of_get_property(pdev->dev.of_node, "qcom,usb-dbm", NULL)) {
 		mdwc->dbm = usb_get_dbm_by_phandle(&pdev->dev, "qcom,usb-dbm");
 		if (IS_ERR(mdwc->dbm)) {
@@ -3143,7 +3143,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		mdwc->lpm_to_suspend_delay = 0;
 	}
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	mdwc->usb_id_gpio = of_get_named_gpio(node, "qcom,usbid-gpio", 0);
 	if (mdwc->usb_id_gpio < 0)
 		pr_err("usb_id_gpio is not available\n");
@@ -3218,7 +3218,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (gpio_is_valid(mdwc->usb_id_gpio)) {
 		/* usb_id_gpio request */
 		ret = gpio_request(mdwc->usb_id_gpio, "USB_ID_GPIO");
@@ -3316,7 +3316,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (mdwc->dbm) {
 #else
 	if (of_get_property(pdev->dev.of_node, "qcom,usb-dbm", NULL)) {
@@ -3479,7 +3479,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		enable_irq(mdwc->pmic_id_irq);
 		local_irq_save(flags);
 		mdwc->id_state = !!irq_read_line(mdwc->pmic_id_irq);
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		if (gpio_is_valid(mdwc->usb_id_gpio))
 			mdwc->id_state = gpio_get_value(mdwc->usb_id_gpio);
 #endif
@@ -3523,7 +3523,7 @@ put_psupply:
 		power_supply_unregister(&mdwc->usb_psy);
 err:
 	return ret;
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 err_dbm:
 	devm_kfree(&pdev->dev, mdwc);
 	return ret;

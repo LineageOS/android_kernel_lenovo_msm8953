@@ -3226,7 +3226,7 @@ static int msm_dai_q6_mi2s_hw_free(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 extern atomic_t quin_mi2s_clk_ref;
 #endif
 
@@ -3248,7 +3248,7 @@ static void msm_dai_q6_mi2s_shutdown(struct snd_pcm_substream *substream,
 				__func__, port_id);
 	}
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if ((atomic_read(&quin_mi2s_clk_ref) >= 1) &&
 			(port_id == AFE_PORT_ID_QUINARY_MI2S_RX)) {
 		if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask))
