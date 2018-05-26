@@ -22,6 +22,10 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
+#ifdef CONFIG_MACH_LENOVO_TB8703
+struct vendor_eeprom s_vendor_eeprom[CAMERA_VENDOR_EEPROM_COUNT_MAX];
+#endif
+
 DEFINE_MSM_MUTEX(msm_eeprom_mutex);
 #ifdef CONFIG_COMPAT
 static struct v4l2_file_operations msm_eeprom_v4l2_subdev_fops;
@@ -669,7 +673,11 @@ static int msm_eeprom_config(struct msm_eeprom_ctrl_t *e_ctrl,
 		if (e_ctrl->userspace_probe == 0) {
 			pr_err("%s:%d Eeprom already probed at kernel boot",
 				__func__, __LINE__);
+#ifdef CONFIG_MACH_LENOVO_TB8703
+			rc = 0;
+#else
 			rc = -EINVAL;
+#endif
 			break;
 		}
 		if (e_ctrl->cal_data.num_data == 0) {
@@ -706,6 +714,80 @@ static int msm_eeprom_get_subdev_id(struct msm_eeprom_ctrl_t *e_ctrl,
 	CDBG("%s X\n", __func__);
 	return 0;
 }
+
+
+#ifdef CONFIG_MACH_LENOVO_TB8703
+//lct.huk added for eeprom check id begin 20160523
+
+
+static int qtech_f5695ak_get_group_index(uint8_t mid)
+{
+  int8_t group_index = -1 ;
+  mid = mid & 0xFC ;
+  if((mid&0xC0) == 0x40){
+    group_index = 0 ;
+  }else if((mid&0x30) == 0x10){
+    group_index = 1 ;
+  }else if((mid&0x0C) == 0x04){
+    group_index = 2 ;
+  }else{
+    group_index = -1 ;
+  }
+  CDBG("%s:group_index:%d",__func__,group_index);
+  return group_index ;
+}
+
+
+static camera_vendor_module_id ov5695_get_otp_vendor_module_id(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	uint8_t mid = 0;
+	uint8_t Flag = 0;
+	uint8_t PageSize = 5;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+
+	Flag = qtech_f5695ak_get_group_index(buffer[0]);
+	CDBG("Lucas: buffer[0]= %d Flag = %d \n",buffer[0],Flag);
+
+	if(Flag != -1)
+	{
+		mid = buffer[1+PageSize*Flag];
+		switch(mid){
+			case MID_QTECH:
+				CDBG("It is QTECH model");
+				break;
+			case MID_AVC:
+				CDBG("It is MID_AVC model");
+				break;
+			case MID_LITEARRAY:
+				CDBG("It is MID_LITEARRAY model");
+				break;
+			default:
+				pr_err("It is not suport model");
+				break;
+		}
+	}
+	return mid;
+
+}
+
+static uint8_t get_otp_vendor_module_id(struct msm_eeprom_ctrl_t *e_ctrl, const char *eeprom_name)
+{
+	camera_vendor_module_id module_id=MID_NULL;
+	if((strcmp(eeprom_name, "qtech_f5695ak") == 0)){
+	CDBG("%s eeprom_name=%s, module_id=%d\n",__func__,eeprom_name,module_id);
+		module_id = ov5695_get_otp_vendor_module_id(e_ctrl);
+	}
+	else if(strcmp(eeprom_name,"qtech_imx219_fx219aq") == 0){
+		module_id = 0x06;
+	}
+	CDBG("%s eeprom_name=%s, module_id=%d\n",__func__,eeprom_name,module_id);
+	if(module_id>=MID_MAX) module_id = MID_NULL;
+
+	return ((uint8_t)module_id);
+}
+
+//lct.huk added for eeprom check id end 20160523
+#endif
 
 static long msm_eeprom_subdev_ioctl(struct v4l2_subdev *sd,
 		unsigned int cmd, void *arg)
@@ -1592,7 +1674,11 @@ static int msm_eeprom_config32(struct msm_eeprom_ctrl_t *e_ctrl,
 		if (e_ctrl->userspace_probe == 0) {
 			pr_err("%s:%d Eeprom already probed at kernel boot",
 				__func__, __LINE__);
+#ifdef CONFIG_MACH_LENOVO_TB8703
+			rc = 0;
+#else
 			rc = -EINVAL;
+#endif
 			break;
 		}
 		if (e_ctrl->cal_data.num_data == 0) {
@@ -1797,6 +1883,18 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 		for (j = 0; j < e_ctrl->cal_data.num_data; j++)
 			CDBG("memory_data[%d] = 0x%X\n", j,
 				e_ctrl->cal_data.mapdata[j]);
+
+#ifdef CONFIG_MACH_LENOVO_TB8703
+		//lct.huk added for eeprom check id 20160523
+
+		if(eb_info->eeprom_name != NULL){
+		pr_err("Lucas:  eb_info->eeprom_name != NULL \n");
+		s_vendor_eeprom[pdev->id].module_id = get_otp_vendor_module_id(e_ctrl, eb_info->eeprom_name);
+		strcpy(s_vendor_eeprom[pdev->id].eeprom_name, eb_info->eeprom_name);
+		}
+		else{
+		strcpy(s_vendor_eeprom[pdev->id].eeprom_name, "NULL");	}
+#endif
 
 		e_ctrl->is_supported |= msm_eeprom_match_crc(&e_ctrl->cal_data);
 
