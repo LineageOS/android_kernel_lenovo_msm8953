@@ -2453,7 +2453,7 @@ static bool smb1351_attempt_enable_parallel_slave(
 	 */
 	if (chip->parallel.total_icl_ma == 0) {
 		if (main_current_icl_ma < min_icl_thr_ma) {
-			pr_info("Current ICL %d lower than threshold %d, skipping!\n",
+			pr_debug("Current ICL %d lower than threshold %d, skipping!\n",
 					main_current_icl_ma, min_icl_thr_ma);
 			return false;
 		}
