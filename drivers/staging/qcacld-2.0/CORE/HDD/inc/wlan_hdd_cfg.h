@@ -3935,7 +3935,7 @@ enum dot11p_mode {
  */
 #define CFG_BTC_DYNAMIC_WLAN_BT_COEX           "gDynamicBTCOEX"
 #define CFG_BTC_DYNAMIC_WLAN_BT_COEX_MIN       (0)
-#define CFG_BTC_DYNAMIC_WLAN_BT_COEX_MAX       (1)
+#define CFG_BTC_DYNAMIC_WLAN_BT_COEX_MAX       (2)
 #define CFG_BTC_DYNAMIC_WLAN_BT_COEX_DEFAULT   (0)
 
 /**
@@ -4537,6 +4537,14 @@ FG_BTC_BT_INTERVAL_PAGE_P2P_STA_DEFAULT
 #define CFG_WOW_PULSE_INTERVAL_HIGH_MIN     (20)
 #define CFG_WOW_PULSE_INTERVAL_HIGH_MAX     (40)
 #define CFG_WOW_PULSE_INTERVAL_HIGH_DEFAULT (20)
+
+/*
+ * Pulse repetition count
+ */
+#define CFG_WOW_PULSE_REPEAT_COUNT_NAME    "gwow_pulse_repeat_count"
+#define CFG_WOW_PULSE_REPEAT_COUNT_MIN     (1)
+#define CFG_WOW_PULSE_REPEAT_COUNT_MAX     (0xFFFFFFFF)
+#define CFG_WOW_PULSE_REPEAT_COUNT_DEFAULT (0xFFFFFFFF)
 #endif
 
 /*
@@ -6105,6 +6113,7 @@ struct hdd_config {
    uint8_t                     wow_pulse_pin;
    uint16_t                    wow_pulse_interval_high;
    uint16_t                    wow_pulse_interval_low;
+   uint16_t                    wow_pulse_repeat_count;
 #endif
    bool                        enable_go_cts2self_for_sta;
    uint8_t                     ht_mpdu_density;
