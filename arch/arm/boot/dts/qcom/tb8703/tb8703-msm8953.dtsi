@@ -13,6 +13,14 @@
 		i2c8 = &i2c_8;
 	};
 
+        firmware {
+                android {
+                        fstab {
+				/delete-node/ vendor;
+                        };
+                };
+        };
+
 
 };
 
