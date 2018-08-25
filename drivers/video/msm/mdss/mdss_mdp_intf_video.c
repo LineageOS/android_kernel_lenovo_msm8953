@@ -823,7 +823,9 @@ static int mdss_mdp_video_ctx_stop(struct mdss_mdp_ctl *ctl,
 	u32 frame_rate = 0;
 
 	mutex_lock(&ctl->offlock);
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	mutex_lock(&ctl->mfd->param_lock);
+#endif
 	if (ctx->timegen_en) {
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_BLANK, NULL,
 			CTL_INTF_EVENT_FLAG_DEFAULT);
@@ -858,7 +860,9 @@ static int mdss_mdp_video_ctx_stop(struct mdss_mdp_ctl *ctl,
 
 	ctx->ref_cnt--;
 end:
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	mutex_unlock(&ctl->mfd->param_lock);
+#endif
 	mutex_unlock(&ctl->offlock);
 	return rc;
 }
@@ -1330,7 +1334,9 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
 	}
 
 	mutex_lock(&ctl->offlock);
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	mutex_lock(&ctl->mfd->param_lock);
+#endif
 	pdata = ctl->panel_data;
 	if (pdata == NULL) {
 		pr_err("%s: Invalid panel data\n", __func__);
@@ -1459,7 +1465,9 @@ exit_dfps:
 
 end:
 	MDSS_XLOG(ctl->num, new_fps, XLOG_FUNC_EXIT);
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	mutex_unlock(&ctl->mfd->param_lock);
+#endif
 	mutex_unlock(&ctl->offlock);
 	return rc;
 }
