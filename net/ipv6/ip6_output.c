@@ -183,9 +183,10 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
 				kfree_skb(skb);
 				return -ENOBUFS;
 			}
+			if (skb->sk)
+				skb_set_owner_w(skb2, skb->sk);
 			consume_skb(skb);
 			skb = skb2;
-			skb_set_owner_w(skb, sk);
 		}
 		if (opt->opt_flen)
 			ipv6_push_frag_opts(skb, opt, &proto);
@@ -532,6 +533,8 @@ static void ip6_copy_metadata(struct sk_buff *to, struct sk_buff *from)
 	skb_dst_set(to, dst_clone(skb_dst(from)));
 	to->dev = from->dev;
 	to->mark = from->mark;
+
+	skb_copy_hash(to, from);
 
 #ifdef CONFIG_NET_SCHED
 	to->tc_index = from->tc_index;
