@@ -43,6 +43,14 @@
 						(b) : (a)) : ((b == 0) ? \
 						(a) : (b)))
 
+/*lenovo-sw caoyi1 add for power control begin*/
+/* POWER SUPPLY VOLTAGE RANGE */
+#define ST_LSM6DS3_VDD_MIN_UV  2000000
+#define ST_LSM6DS3_VDD_MAX_UV  3300000
+#define ST_LSM6DS3_VIO_MIN_UV  1750000
+#define ST_LSM6DS3_VIO_MAX_UV  1950000
+/*lenovo-sw caoyi1 add for power control end*/
+
 /* COMMON VALUES FOR ACCEL-GYRO SENSORS */
 #define ST_LSM6DS3_WAI_ADDRESS			0x0f
 #define ST_LSM6DS3_WAI_EXP			0x69
@@ -153,9 +161,9 @@
 #define ST_LSM6DS3_GYRO_FS_500_VAL		0x01
 #define ST_LSM6DS3_GYRO_FS_1000_VAL		0x02
 #define ST_LSM6DS3_GYRO_FS_2000_VAL		0x03
-#define ST_LSM6DS3_GYRO_FS_250_GAIN		IIO_DEGREE_TO_RAD(8750)
-#define ST_LSM6DS3_GYRO_FS_500_GAIN		IIO_DEGREE_TO_RAD(17500)
-#define ST_LSM6DS3_GYRO_FS_1000_GAIN		IIO_DEGREE_TO_RAD(35000)
+#define ST_LSM6DS3_GYRO_FS_250_GAIN		IIO_DEGREE_TO_RAD(4375)
+#define ST_LSM6DS3_GYRO_FS_500_GAIN		IIO_DEGREE_TO_RAD(8750)
+#define ST_LSM6DS3_GYRO_FS_1000_GAIN		IIO_DEGREE_TO_RAD(17500)
 #define ST_LSM6DS3_GYRO_FS_2000_GAIN		IIO_DEGREE_TO_RAD(70000)
 #define ST_LSM6DS3_GYRO_OUT_X_L_ADDR		0x22
 #define ST_LSM6DS3_GYRO_OUT_Y_L_ADDR		0x24
@@ -1489,6 +1497,32 @@ static int lsm6ds3_enable_digital_func(struct lsm6ds3_data *cdata,
 	return 0;
 }
 
+/*lenovo-sw caoyi1 modfiy for step counter begin*/
+static int lsm6ds3_pedometer_parameter(struct lsm6ds3_data *cdata,u8 pedo_threshold, u8 debounce)
+{
+	int err;
+	u8 new_data = 0x00, old_data = 0x00;
+
+	err = cdata->tf->read(cdata, 0x10, 1, &old_data, true);
+	//printk("Regulator ctrl1 =0x%x\n", old_data);
+	err = st_lsm6ds3_write_data_with_mask(cdata, 0x01, 0x80, 0x01, true);
+	if (err < 0)
+		return err;
+
+	new_data = pedo_threshold;
+	cdata->tf->write(cdata, 0x0f, 1, &new_data, true);
+
+	new_data = debounce;
+	cdata->tf->write(cdata, 0x14, 1, &new_data, true);
+
+	err = st_lsm6ds3_write_data_with_mask(cdata, 0x01, 0x80, 0x00, true);
+	if (err < 0)
+		return err;
+
+	return 0;
+}
+/*lenovo-sw caoyi1 modfiy for step counter end*/
+
 /*
  * Enable / disable HW pedometer
  */
@@ -1510,6 +1544,12 @@ static int lsm6ds3_enable_pedometer(struct lsm6ds3_data *cdata,
 						true, ST_MASK_ID_HW_PEDOMETER);
 			if (err < 0)
 				return err;
+
+/*lenovo-sw caoyi1 modify for step counter begin*/
+			err = lsm6ds3_pedometer_parameter(cdata, 0x8d, 0x5f);
+			if (err < 0)
+				return err;
+/*lenovo-sw caoyi1 modify for step counter end*/
 		} else {
 			if (id == ST_MASK_ID_SIGN_MOTION) {
 				err = st_lsm6ds3_write_data_with_mask(cdata,
@@ -2826,6 +2866,167 @@ static const struct iio_trigger_ops st_lsm6ds3_trigger_ops = {
 #define ST_LSM6DS3_TRIGGER_OPS NULL
 #endif
 
+/*lenovo-sw caoyi add for LDO control 20160301 begin*/
+static int sensor_power_set(struct lsm6ds3_data *data, bool on)
+{
+	int rc = 0;
+	dev_info(data->dev, "%s on=%d\n",__func__,on);
+
+	if (!on) {
+		rc = regulator_disable(data->vdd);
+		if (rc) {
+			dev_err(data->dev, "Regulator vdd disable failed rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = regulator_disable(data->vio);
+		if (rc) {
+			dev_err(data->dev, "Regulator vio disable failed rc=%d\n", rc);
+			rc = regulator_enable(data->vdd);
+			dev_err(data->dev, "Regulator vio re-enabled rc=%d\n", rc);
+			/*
+			 * Successfully re-enable regulator.
+			 * Enter poweron delay and returns error.
+			 */
+			if (!rc) {
+				rc = -EBUSY;
+				goto enable_delay;
+			}
+		}
+		return rc;
+	} else {
+		rc = regulator_enable(data->vdd);
+		if (rc) {
+			dev_err(data->dev, "Regulator vdd enable failed rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = regulator_enable(data->vio);
+		if (rc) {
+			dev_err(data->dev, "Regulator vio enable failed rc=%d\n", rc);
+			regulator_disable(data->vdd);
+			return rc;
+		}
+	}
+
+enable_delay:
+/*lenovo-sw caoyi1 modify for sensor enable LDO delay 20160331 begin*/
+	msleep(200);
+/*lenovo-sw caoyi1 modify for sensor enable LDO delay 20160331 end*/
+	dev_dbg(data->dev, "Sensor regulator power on =%d\n", on);
+	return rc;
+}
+
+static int sensor_power_init(struct lsm6ds3_data *data, bool on)
+{
+	int rc;
+
+	if (!on) {
+		if (regulator_count_voltages(data->vdd) > 0)
+			regulator_set_voltage(data->vdd, 0,ST_LSM6DS3_VDD_MAX_UV);
+		regulator_put(data->vdd);
+		if (regulator_count_voltages(data->vio) > 0)
+			regulator_set_voltage(data->vio, 0,ST_LSM6DS3_VIO_MAX_UV);
+		regulator_put(data->vdd);
+	} else {
+		data->vdd = regulator_get(data->dev, "vdd");
+		if (IS_ERR(data->vdd)) {
+			rc = PTR_ERR(data->vdd);
+			dev_err(data->dev,
+				"Regulator get failed vdd rc=%d\n", rc);
+			return rc;
+		}
+
+		if (regulator_count_voltages(data->vdd) > 0) {
+			rc = regulator_set_voltage(data->vdd,
+				ST_LSM6DS3_VDD_MIN_UV, ST_LSM6DS3_VDD_MAX_UV);
+			if (rc) {
+				dev_err(data->dev,
+					"Regulator set failed vdd rc=%d\n",
+					rc);
+				goto reg_vdd_put;
+			}
+		}
+
+		data->vio = regulator_get(data->dev, "vio");
+		if (IS_ERR(data->vio)) {
+			rc = PTR_ERR(data->vio);
+			dev_err(data->dev,"Regulator get failed vio rc=%d\n", rc);
+			goto reg_vdd_set;
+		}
+
+		if (regulator_count_voltages(data->vio) > 0) {
+			rc = regulator_set_voltage(data->vio, ST_LSM6DS3_VIO_MIN_UV, ST_LSM6DS3_VIO_MAX_UV);
+			if (rc) {
+				dev_err(data->dev, "Regulator set failed vio rc=%d\n", rc);
+				goto reg_vio_put;
+			}
+		}
+	}
+	dev_info(data->dev, "%s success\n",__func__);
+	return 0;
+
+reg_vio_put:
+	regulator_put(data->vio);
+
+reg_vdd_set:
+	if (regulator_count_voltages(data->vdd) > 0)
+		regulator_set_voltage(data->vdd, 0, ST_LSM6DS3_VDD_MAX_UV);
+reg_vdd_put:
+	regulator_put(data->vdd);
+	dev_info(data->dev, "%s fail\n",__func__);
+	return rc;
+}
+/*lenovo-sw caoyi add for LDO control 20160301 end*/
+
+/*lenovo-sw caoyi1 add for Msensor reset pin control 20150404 begin*/
+static int msensor_gpio_init(struct lsm6ds3_data *data)
+{
+	int err = 0;
+
+	data->msensor_gpio = 44;
+
+	printk("lsm6ds3 %s  data->msensor_gpio = %d\n",__func__,data->msensor_gpio);
+
+	if (gpio_is_valid(data->msensor_gpio))
+	{
+		printk("lsm6ds3  %s  gpio_is_valid  ok1\n",__func__);
+		err = gpio_request(data->msensor_gpio, "msensor_gpio");
+		printk("lsm6ds3 %s  gpio_request  return=%d\n",__func__,err);
+	}
+
+	err = gpio_direction_output(data->msensor_gpio, 1);
+	if (err)
+	{
+		printk("lsm6ds3 %s  gpio_direction_output err 1\n",__func__);
+	}
+	printk("lsm6ds3 %s  gpio_direction_output ok 1 return=%d\n",__func__,err);
+
+	data->pinctrl = devm_pinctrl_get(data->dev);
+	if (IS_ERR_OR_NULL(data->pinctrl))
+	{
+		printk("%s:Getting pinctrl handle failed \r\n", __func__);
+		return -EINVAL;
+	}
+
+	data->gpio_state_active = pinctrl_lookup_state(data->pinctrl,"msensor_reset_on");
+	data->gpio_state_suspend = pinctrl_lookup_state(data->pinctrl,"msensor_reset_off");
+
+	if (data->pinctrl && data->gpio_state_active)
+	{
+		err = pinctrl_select_state(data->pinctrl, data->gpio_state_active);
+		if (err)
+		{
+			printk("%s:pinctrl adopt active state, err = %d\r\n", __func__, err);
+			return -EINVAL;
+		}
+		printk("%s:pinctrl adopt active state\r\n", __func__);
+	}
+
+	return 0;
+}
+/*lenovo-sw caoyi1 add for Msensor reset pin control 20150404 end*/
+
 int st_lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq)
 {
 	u8 wai = 0x00;
@@ -2896,6 +3097,20 @@ int st_lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq)
 	cdata->injection_timer.function = &st_lsm6ds3_injection_timer_func;
 	spin_lock_init(&cdata->injection_spinlock);
 #endif /* CONFIG_ST_LSM6DS3_XL_DATA_INJECTION */
+
+/*lenovo-sw caoyi1 add for power control begin*/
+	err = sensor_power_init(cdata, 1);
+	if (err < 0)
+		 goto free_fifo_data;
+	err = sensor_power_set(cdata, 1);
+	if (err < 0)
+		 goto free_fifo_data;
+	dev_info(cdata->dev, "%s power control success\n",__func__);
+/*lenovo-sw caoyi1 add for power control end*/
+
+/*lenovo-sw caoyi1 add for Msensor reset pin control 20150404 begin*/
+	msensor_gpio_init(cdata);
+/*lenovo-sw caoyi1 add for Msensor reset pin control 20150404 end*/
 
 	err = cdata->tf->read(cdata, ST_LSM6DS3_WAI_ADDRESS, 1, &wai, true);
 	if (err < 0) {
@@ -3091,8 +3306,10 @@ int st_lsm6ds3_common_suspend(struct lsm6ds3_data *cdata)
 	tmp_sensors_enabled = cdata->sensors_enabled;
 
 	for (i = 0; i < ST_INDIO_DEV_NUM; i++) {
-		if ((i == ST_MASK_ID_SIGN_MOTION) || (i == ST_MASK_ID_TILT))
+/*lenovo-sw caoyi1 modify for do not close step counter when it was enabled begin*/
+		if ((i == ST_MASK_ID_SIGN_MOTION) || (i == ST_MASK_ID_TILT) || (i == ST_MASK_ID_STEP_COUNTER))
 			continue;
+/*lenovo-sw caoyi1 modify for do not close step counter when it was enabled end*/
 
 		sdata = iio_priv(cdata->indio_dev[i]);
 
@@ -3131,8 +3348,10 @@ int st_lsm6ds3_common_resume(struct lsm6ds3_data *cdata)
 	struct lsm6ds3_sensor_data *sdata;
 
 	for (i = 0; i < ST_INDIO_DEV_NUM; i++) {
-		if ((i == ST_MASK_ID_SIGN_MOTION) || (i == ST_MASK_ID_TILT))
+/*lenovo-sw caoyi1 modify for do not close step counter when it was enabled begin*/
+		if ((i == ST_MASK_ID_SIGN_MOTION) || (i == ST_MASK_ID_TILT) || (i == ST_MASK_ID_STEP_COUNTER))
 			continue;
+/*lenovo-sw caoyi1 modify for do not close step counter when it was enabled end*/
 
 		sdata = iio_priv(cdata->indio_dev[i]);
 
