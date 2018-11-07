@@ -43,6 +43,11 @@ static irqreturn_t lsm6ds3_irq_management(int irq, void *private)
 	struct lsm6ds3_data *cdata = private;
 	u8 src_accel_gyro = 0, src_dig_func = 0;
 
+/*lenovo-sw caoyi1 add for NULL pointer protect begin*/
+	if (cdata == NULL)
+		goto exit_irq;
+/*lenovo-sw caoyi1 add for NULL pointer protect end*/
+
 	get_monotonic_boottime(&ts);
 	cdata->timestamp = timespec_to_ns(&ts);
 
