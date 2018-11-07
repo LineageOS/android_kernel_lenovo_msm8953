@@ -64,6 +64,17 @@ int st_lsm6ds3_push_data_with_timestamp(struct lsm6ds3_data *cdata,
 		((s64 *)sdata->buffer_data)[offset] = timestamp;
 	}
 
+/*lenovo-sw caoyi1 add for NULL pointer protect begin*/
+	if(!sdata->buffer_data) {
+		printk("%s NULL point buffer_data error.\n", __func__);
+		return -ENOMEM;
+	}
+	if(!cdata->indio_dev[index]) {
+		printk("%s NULL point indio_dev[%u] error.\n", __func__,index);
+		return -ENOMEM;
+	}
+/*lenovo-sw caoyi1 add for NULL pointer protect end*/
+
 	iio_push_to_buffers(cdata->indio_dev[index], sdata->buffer_data);
 
 	cdata->fifo_output[index].timestamp_p = timestamp;
@@ -561,12 +572,17 @@ static int st_lsm6ds3_buffer_postdisable(struct iio_dev *indio_dev)
 	mutex_lock(&sdata->cdata->odr_lock);
 
 	err = st_lsm6ds3_set_enable(sdata, false, true);
+	if (err < 0) {
+		mutex_unlock(&sdata->cdata->odr_lock);
+		printk("%s: st_lsm6ds3_set_enable error=%d\n", __func__, err);
+		return err;
+	}
 
 	mutex_unlock(&sdata->cdata->odr_lock);
 
 	kfree(sdata->buffer_data);
 
-	return err < 0 ? err : 0;
+	return 0;
 }
 
 static const struct iio_buffer_setup_ops st_lsm6ds3_buffer_setup_ops = {
