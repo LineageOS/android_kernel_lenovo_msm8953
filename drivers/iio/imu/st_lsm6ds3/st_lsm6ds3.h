@@ -44,7 +44,9 @@ enum st_mask_id {
 #define ST_LSM6DS3_FIFO_ELEMENT_LEN_BYTE	6
 
 #define ST_LSM6DS3_MAX_FIFO_SIZE		8192
-#define ST_LSM6DS3_MAX_FIFO_THRESHOLD		1092
+/*lenovo-sw caoyi1 modify for CTS test fail begin*/
+#define ST_LSM6DS3_MAX_FIFO_THRESHOLD		200
+/*lenovo-sw caoyi1 modify for CTS test fail end*/
 #define ST_LSM6DS3_MAX_FIFO_LENGHT		(ST_LSM6DS3_MAX_FIFO_SIZE / \
 					ST_LSM6DS3_FIFO_ELEMENT_LEN_BYTE)
 
@@ -254,6 +256,17 @@ struct lsm6ds3_data {
 
 	const struct st_lsm6ds3_transfer_function *tf;
 	struct st_lsm6ds3_transfer_buffer tb;
+/*lenovo-sw caoyi1 add for power control begin*/
+	struct regulator	*vdd;
+	struct regulator	*vio;
+/*lenovo-sw caoyi1 add for power control end*/
+
+/*lenovo-sw caoyi1 add for Msensor reset pin control 20150404 begin*/
+	int msensor_gpio;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *gpio_state_active;
+	struct pinctrl_state *gpio_state_suspend;
+/*lenovo-sw caoyi1 add for Msensor reset pin control 20150404 end*/
 };
 
 struct st_lsm6ds3_transfer_function {
