@@ -1442,12 +1442,17 @@ static int st_lsm6ds3_i2c_master_buffer_postdisable(struct iio_dev *indio_dev)
 	mutex_lock(&sdata->cdata->odr_lock);
 
 	err = st_lsm6ds3_i2c_master_set_enable(sdata, false, true);
+	if (err < 0) {
+		mutex_unlock(&sdata->cdata->odr_lock);
+		printk("%s: st_lsm6ds3_i2c_master_set_enable error=%d\n", __func__, err);
+		return err;
+	}
 
 	mutex_unlock(&sdata->cdata->odr_lock);
 
 	kfree(sdata->buffer_data);
 
-	return err < 0 ? err : 0;
+	return 0;
 }
 
 static const struct iio_trigger_ops st_lsm6ds3_i2c_master_trigger_ops = {
