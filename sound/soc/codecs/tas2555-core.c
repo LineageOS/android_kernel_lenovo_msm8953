@@ -44,7 +44,7 @@
 #include "tas2555.h"
 #include "tas2555-core.h"
 
-#define TAS2555_CAL_NAME    "/persist/tas2555_cal.bin"
+#define TAS2555_CAL_NAME    "/mnt/vendor/persist/tas2555_cal.bin"
 
 //set default PLL CLKIN to GPI2 (MCLK) = 0x00
 #define TAS2555_DEFAULT_PLL_CLKIN 0x00
