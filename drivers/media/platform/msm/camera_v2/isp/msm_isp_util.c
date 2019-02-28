@@ -889,12 +889,14 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		rc = msm_isp_cfg_axi_stream(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
+#if !defined(CONFIG_MACH_LENOVO_TB8703)
 	case VIDIOC_MSM_ISP_CFG_HW_STATE:
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_update_stream_bandwidth(vfe_dev,
 			*(enum msm_vfe_hw_state *)arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
+#endif
 	case VIDIOC_MSM_ISP_AXI_HALT:
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_axi_halt(vfe_dev, arg);
@@ -1427,6 +1429,7 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 		vfe_dev->vfe_ub_policy = *cfg_data;
 		break;
 	}
+#if !defined(CONFIG_MACH_LENOVO_TB8703)
 	case GET_VFE_HW_LIMIT: {
 		uint32_t *hw_limit = NULL;
 
@@ -1441,6 +1444,7 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 		*hw_limit = vfe_dev->vfe_hw_limit;
 		break;
 	}
+#endif
 	}
 	return 0;
 }

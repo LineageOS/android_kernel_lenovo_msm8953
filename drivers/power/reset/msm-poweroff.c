@@ -282,7 +282,7 @@ static void msm_restart_prepare(const char *cmd)
 
 	if (qpnp_pon_check_hard_reset_stored()) {
 		/* Set warm reset as true when device is in dload mode */
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		if (get_dload_mode() ||
 			((cmd != NULL && cmd[0] != '\0') &&
 			strcmp(cmd, "recovery") &&
@@ -302,7 +302,7 @@ static void msm_restart_prepare(const char *cmd)
 				strcmp(cmd, "userrequested")));
 	}
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (in_panic)
 		need_warm_reset = true;
 	else
@@ -326,7 +326,7 @@ static void msm_restart_prepare(const char *cmd)
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_BOOTLOADER);
 			__raw_writel(0x77665500, restart_reason);
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 			/* set reboot_bl flag in PMIC for cold reset */
 			qpnp_pon_store_extra_reset_info(RESET_EXTRA_REBOOT_BL_REASON,
 				RESET_EXTRA_REBOOT_BL_REASON);
@@ -365,7 +365,7 @@ static void msm_restart_prepare(const char *cmd)
 					     restart_reason);
 		} else if (!strncmp(cmd, "edl", 3)) {
 			enable_emergency_dload_mode();
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		} else if (!strncmp(cmd, "testmode", 8)) {
 			__raw_writel(0x77665504, restart_reason);
 		} else if (!strncmp(cmd, "dloadmode", 9)) {
@@ -435,7 +435,7 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 static void do_msm_poweroff(void)
 {
 	pr_notice("Powering off the SoC\n");
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	qpnp_pon_store_extra_reset_info(RESET_EXTRA_LAST_REBOOT_REASON,
 		RESET_EXTRA_LAST_REBOOT_REASON);
 #endif

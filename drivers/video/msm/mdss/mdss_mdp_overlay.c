@@ -3935,6 +3935,7 @@ static struct attribute_group dynamic_fps_fs_attrs_group = {
 	.attrs = dynamic_fps_fs_attrs,
 };
 
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 static ssize_t frame_counter_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -4092,7 +4093,7 @@ static struct attribute *factory_te_attrs[] = {
 static struct attribute_group factory_te_attrs_group = {
 	.attrs = factory_te_attrs,
 };
-
+#endif
 
 static ssize_t mdss_mdp_vsync_show_event(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -5887,6 +5888,7 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 		break;
 
 	default:
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		if (mfd->panel.type == MIPI_VIDEO_PANEL ||
 			mfd->panel.type == MIPI_CMD_PANEL) {
 			struct mdss_panel_data *pdata;
@@ -5900,7 +5902,7 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 			ret = mdss_dsi_ioctl_handler(pdata, cmd, argp);
 			mutex_unlock(&mdp5_data->ov_lock);
 		}
-
+#endif
 		break;
 	}
 
@@ -6874,7 +6876,6 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 			&mfd->pdev->dev.kobj, "mdss_fb");
 	if (rc)
 		pr_warn("problem creating link to mdss_fb sysfs\n");
-
 	if (mfd->panel_info->type == MIPI_VIDEO_PANEL ||
 	    mfd->panel_info->type == DTV_PANEL) {
 		rc = sysfs_create_group(&dev->kobj,
@@ -6894,6 +6895,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 		}
 	}
 
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (mfd->panel_info->type == MIPI_CMD_PANEL) {
 		rc = sysfs_create_group(&dev->kobj,
 					&factory_te_attrs_group);
@@ -6902,6 +6904,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 			goto init_fail;
 		}
 	}
+#endif
 
 	mfd->mdp_sync_pt_data.async_wait_fences = true;
 

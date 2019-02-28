@@ -95,7 +95,7 @@
 #define QPNP_PON_XVDD_RB_SPARE(pon)		((pon)->base + 0x8E)
 #define QPNP_PON_SOFT_RB_SPARE(pon)		((pon)->base + 0x8F)
 #define QPNP_PON_SEC_ACCESS(pon)		((pon)->base + 0xD0)
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 /* spared registers for storing extra reset information */
 #define QPNP_PON_EXTRA_RESET_INFO_1(base)	(base + 0x8D)
 #define QPNP_PON_EXTRA_RESET_INFO_2(base)	(base + 0x8E)
@@ -380,7 +380,7 @@ int qpnp_pon_set_restart_reason(enum pon_restart_reason reason)
 }
 EXPORT_SYMBOL(qpnp_pon_set_restart_reason);
 
-#ifdef CONFIG_MACH_LENOVO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 int qpnp_pon_store_extra_reset_info(u16 mask, u16 val)
 {
 	int rc = 0;

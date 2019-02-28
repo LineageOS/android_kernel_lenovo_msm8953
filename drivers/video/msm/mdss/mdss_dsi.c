@@ -44,6 +44,9 @@ static struct mdss_dsi_data *mdss_dsi_res;
 #define DSI_ENABLE_PC_LATENCY PM_QOS_DEFAULT_VALUE
 
 static struct pm_qos_request mdss_dsi_pm_qos_request;
+#ifdef CONFIG_MACH_LENOVO_TB8703
+extern int mdss_dsi_panel_lcden_gpio_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int on);
+#endif
 
 static void mdss_dsi_pm_qos_add_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -97,6 +100,7 @@ static void mdss_dsi_pm_qos_update_request(int val)
 static int mdss_dsi_pinctrl_set_state(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 					bool active);
 
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 static int mdss_dsi_hndl_enable_te(struct mdss_dsi_ctrl_pdata *ctrl,
 				int enable)
 {
@@ -107,6 +111,7 @@ static int mdss_dsi_hndl_enable_te(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	return 0;
 }
+#endif
 
 static struct mdss_dsi_ctrl_pdata *mdss_dsi_get_ctrl(u32 ctrl_id)
 {
@@ -439,6 +444,9 @@ int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
+#ifdef CONFIG_MACH_LENOVO_TB8703
+	mdss_dsi_panel_lcden_gpio_ctrl(ctrl_pdata, power_state);
+#endif
 
 	/*
 	 * If a dynamic mode switch is pending, the regulators should not
@@ -2720,10 +2728,12 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 	case MDSS_EVENT_ENABLE_PARTIAL_ROI:
 		rc = mdss_dsi_ctl_partial_roi(pdata);
 		break;
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	case MDSS_EVENT_ENABLE_TE:
 		rc = mdss_dsi_hndl_enable_te(ctrl_pdata,
 				(int) (unsigned long) arg);
 		break;
+#endif
 	case MDSS_EVENT_DSI_RESET_WRITE_PTR:
 		rc = mdss_dsi_reset_write_ptr(pdata);
 		break;
@@ -2824,7 +2834,7 @@ static struct device_node *mdss_dsi_pref_prim_panel(
 
 	return dsi_pan_node;
 }
-
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 int mdss_dsi_ioctl_handler(struct mdss_panel_data *pdata, u32 cmd, void *arg)
 {
 	int rc = -ENOSYS;
@@ -2851,6 +2861,7 @@ int mdss_dsi_ioctl_handler(struct mdss_panel_data *pdata, u32 cmd, void *arg)
 
 	return rc;
 }
+#endif
 
 /**
  * mdss_dsi_find_panel_of_node(): find device node of dsi panel
@@ -2997,7 +3008,7 @@ static struct device_node *mdss_dsi_config_panel(struct platform_device *pdev,
 		/* dsi panel cfg not present */
 		pr_warn("%s:%d:dsi specific cfg not present\n",
 			__func__, __LINE__);
-
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	/* Parse panel config */
 	rc = mdss_panel_parse_panel_config_dt(ctrl_pdata);
 	if (rc) {
@@ -3005,6 +3016,7 @@ static struct device_node *mdss_dsi_config_panel(struct platform_device *pdev,
 								__func__, rc);
 		return NULL;
 	}
+#endif
 	/* find panel device node */
 	dsi_pan_node = mdss_dsi_find_panel_of_node(pdev, panel_cfg);
 	if (!dsi_pan_node) {
@@ -4334,9 +4346,11 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 	pr_info("%s: Continuous splash %s\n", __func__,
 		pinfo->cont_splash_enabled ? "enabled" : "disabled");
 
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (pinfo->cont_splash_enabled &&
 		pinfo->forced_tx_mode_ftr_enabled)
 		mdss_dsi_panel_forced_tx_mode_set(pinfo, true);
+#endif
 
 	rc = mdss_register_panel(ctrl_pdev, &(ctrl_pdata->panel_data));
 	if (rc) {

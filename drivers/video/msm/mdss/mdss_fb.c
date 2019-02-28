@@ -81,6 +81,7 @@
  * Default value is set to 1 sec.
  */
 #define MDP_TIME_PERIOD_CALC_FPS_US	1000000
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 #define __PARAM_SYSFS_DEFINITION(_name, _id)                                   \
 static ssize_t _name##_show(struct device *dev, \
 		struct device_attribute *attr, char *buf) \
@@ -100,6 +101,7 @@ static ssize_t _name##_store(struct device *dev, \
 	ret = mdss_fb_set_param(dev, _id, buf); \
 	return ret ? ret : count; \
 }
+#endif
 
 static struct fb_info *fbi_list[MAX_FBI_LIST];
 static int fbi_list_index;
@@ -902,6 +904,7 @@ static ssize_t mdss_fb_get_persist_mode(struct device *dev,
 	return ret;
 }
 
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 static ssize_t mdss_fb_get_panel_name(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -919,6 +922,7 @@ static ssize_t mdss_fb_get_panel_name(struct device *dev,
 }
 
 static DEVICE_ATTR(lcd_name, S_IRUGO, mdss_fb_get_panel_name, NULL);
+#endif
 static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static DEVICE_ATTR(msm_fb_split, S_IRUGO | S_IWUSR, mdss_fb_show_split,
 					mdss_fb_store_split);
@@ -940,7 +944,9 @@ static DEVICE_ATTR(measured_fps, S_IRUGO | S_IWUSR | S_IWGRP,
 static DEVICE_ATTR(msm_fb_persist_mode, S_IRUGO | S_IWUSR,
 	mdss_fb_get_persist_mode, mdss_fb_change_persist_mode);
 static struct attribute *mdss_fb_attrs[] = {
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	&dev_attr_lcd_name.attr,
+#endif
 	&dev_attr_msm_fb_type.attr,
 	&dev_attr_msm_fb_split.attr,
 	&dev_attr_show_blank_event.attr,
@@ -960,6 +966,7 @@ static struct attribute_group mdss_fb_attr_group = {
 	.attrs = mdss_fb_attrs,
 };
 
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 static struct panel_param *mdss_fb_dev_to_param(struct device *dev, u16 id)
 {
 	struct fb_info *fbi = dev_get_drvdata(dev);
@@ -1144,6 +1151,7 @@ static int mdss_fb_create_param_sysfs(struct msm_fb_data_type *mfd)
 	}
 	return rc;
 }
+#endif
 
 static int mdss_fb_create_sysfs(struct msm_fb_data_type *mfd)
 {
@@ -1152,13 +1160,17 @@ static int mdss_fb_create_sysfs(struct msm_fb_data_type *mfd)
 	rc = sysfs_create_group(&mfd->fbi->dev->kobj, &mdss_fb_attr_group);
 	if (rc) {
 		pr_err("sysfs group creation failed, rc=%d\n", rc);
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		goto err;
+#endif
 	}
+
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	rc = mdss_fb_create_param_sysfs(mfd);
 	if (rc)
 		pr_err("panel parameter sysfs creation failed, rc=%d\n", rc);
-
 err:
+#endif
 	return rc;
 }
 
@@ -1497,7 +1509,9 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mutex_init(&mfd->bl_lock);
 	mutex_init(&mfd->mdss_sysfs_lock);
 	mutex_init(&mfd->switch_lock);
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	mutex_init(&mfd->param_lock);
+#endif
 
 	fbi_list[fbi_list_index++] = fbi;
 
@@ -1928,8 +1942,9 @@ void mdss_fb_update_backlight(struct msm_fb_data_type *mfd)
 	struct mdss_panel_data *pdata;
 	u32 temp;
 	bool bl_notify = false;
-
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	mdss_fb_restore_param_hbm(mfd);
+#endif
 	if (mfd->unset_bl_level == U32_MAX)
 		return;
 	mutex_lock(&mfd->bl_lock);
@@ -2100,7 +2115,9 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 
 	if (mfd->mdp.on_fnc) {
 		struct mdss_panel_info *panel_info = mfd->panel_info;
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		int panel_dead = mfd->panel_info->panel_dead;
+#endif
 		struct fb_var_screeninfo *var = &mfd->fbi->var;
 
 		ret = mfd->mdp.on_fnc(mfd);
@@ -2110,7 +2127,9 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 		}
 
 		mfd->panel_power_state = MDSS_PANEL_POWER_ON;
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		if (panel_dead)
+#endif
 			mfd->panel_info->panel_dead = false;
 		mutex_lock(&mfd->update.lock);
 		mfd->update.type = NOTIFY_TYPE_UPDATE;
@@ -2132,7 +2151,9 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 
 	/* Reset the backlight only if the panel was off */
 	if (mdss_panel_is_power_off(cur_power_state)) {
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		mdss_fb_restore_param(mfd);
+#endif
 
 		mutex_lock(&mfd->bl_lock);
 		if (!mfd->allow_bl_update) {
@@ -2261,7 +2282,9 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 	int ret;
 	struct mdss_panel_data *pdata;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	int panel_dead = mfd->panel_info->panel_dead;
+#endif
 
 	ret = mdss_fb_pan_idle(mfd);
 	if (ret) {
@@ -2295,7 +2318,7 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 	}
 
 	ret = mdss_fb_blank_sub(blank_mode, info, mfd->op_enable);
-
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (blank_mode == FB_BLANK_UNBLANK && !panel_dead &&
 		mfd->panel_info->panel_dead) {
 		pr_err("%s: Panel is dead, attempt recovery\n", __func__);
@@ -2303,6 +2326,7 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 		usleep_range(225 * 1000, 225 * 1000);
 		mdss_fb_blank_sub(FB_BLANK_UNBLANK, info, 1);
 	}
+#endif
 
 end:
 	mutex_unlock(&mfd->mdss_sysfs_lock);

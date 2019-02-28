@@ -22,9 +22,10 @@
 #include <linux/qpnp/pwm.h>
 #include <linux/err.h>
 #include <linux/string.h>
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 #include <linux/uaccess.h>
 #include <linux/msm_mdp.h>
-
+#endif
 #include "mdss_dsi.h"
 #ifdef TARGET_HW_MDSS_HDMI
 #include "mdss_dba_utils.h"
@@ -32,10 +33,21 @@
 
 #define MDSS_PANEL_DEFAULT_VER 0xffffffffffffffff
 #define MDSS_PANEL_UNKNOWN_NAME "unknown"
+#ifdef CONFIG_MACH_LENOVO_TB8703
+#include "mdss_panel.h"
+#endif
 #define DT_CMD_HDR 6
 #define MIN_REFRESH_RATE 48
 #define DEFAULT_MDP_TRANSFER_TIME 14000
 #define DCS_CMD_GET_POWER_MODE 0x0A
+
+#ifdef CONFIG_TOUCHSCREEN_HIMAX_HX852XF
+//qijin add for compatible with the 2 FW of himax ,AUO and INX
+#define PANLE_NAME_AUO "auont51021 1200p video mode dsi panel"
+#define PANLE_NAME_INX "innont51021b 1200p video mode dsi panel"
+int panel_id_ret;
+//qijin add end
+#endif
 
 #define VSYNC_DELAY msecs_to_jiffies(17)
 
@@ -215,22 +227,42 @@ static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
 
-static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_WRITE1 */
+#ifdef CONFIG_MACH_LENOVO_TB8703
+static char led_pwm1[2] = {0x9f, 0x0}; /* DTYPE_DCS_WRITE1 */
+#else
+static char led_pwm1[2] = {0x51, 0x0}; /* DTYPE_DCS_WRITE1 */
+#endif
+
 static struct dsi_cmd_desc backlight_cmd = {
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(led_pwm1)},
+#else
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_pwm1)},
+#endif
 	led_pwm1
 };
+#ifdef CONFIG_MACH_LENOVO_TB8703
+static int previous_level = 0;
+#endif
 
 static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 {
 	struct dcs_cmd_req cmdreq;
 	struct mdss_panel_info *pinfo;
+#ifdef CONFIG_MACH_LENOVO_TB8703
+	int rc = 0;
+#endif
 
 	pinfo = &(ctrl->panel_data.panel_info);
 	if (pinfo->dcs_cmd_by_left) {
 		if (ctrl->ndx != DSI_CTRL_LEFT)
 			return;
 	}
+#ifdef CONFIG_MACH_LENOVO_TB8703
+//lct.lixiaojun add for 60% level 2016-06-06
+	if(level != 1)
+		level = level * 6 / 10;
+#endif
 
 	pr_debug("%s: level=%d\n", __func__, level);
 
@@ -243,7 +275,38 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	cmdreq.rlen = 0;
 	cmdreq.cb = NULL;
 
+#ifdef CONFIG_MACH_LENOVO_TB8703
+	if(level){
+		if(previous_level){
+			mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+		}else{
+			mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+			if (gpio_is_valid(ctrl->bklt_en_gpio)) {
+				rc = gpio_request(ctrl->bklt_en_gpio,"bklt_enable");
+				if (rc) {
+					pr_err("request bklt gpio failed, rc=%d\n",rc);
+					return;
+				}
+				rc = gpio_direction_output(ctrl->bklt_en_gpio, 1);
+				if (rc) {
+					pr_err("%s: unable to set dir for bklt gpio\n",
+						__func__);
+					return;
+				}
+			}
+		}
+	}else{
+		if (gpio_is_valid(ctrl->bklt_en_gpio)) {
+			mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+			gpio_set_value((ctrl->bklt_en_gpio), 0);
+			gpio_free(ctrl->bklt_en_gpio);
+		}
+	}
+	previous_level = level;
+#else
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+#endif
+
 }
 
 static void mdss_dsi_panel_set_idle_mode(struct mdss_panel_data *pdata,
@@ -295,6 +358,7 @@ static bool mdss_dsi_panel_get_idle_mode(struct mdss_panel_data *pdata)
 	return ctrl->idle;
 }
 
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 /*
  * Note that: the following panel parameter related function must be called
  * within mfd->panel_info->param_lock to avoid data mess-up caused by possible
@@ -328,6 +392,7 @@ static int mdss_dsi_panel_set_param(struct mdss_panel_data *pdata,
 	mdss_dsi_panel_cmds_send(ctrl, &cmds[val], CMD_REQ_COMMIT);
 	return 0;
 }
+#endif
 
 static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -342,6 +407,15 @@ static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 			goto disp_en_gpio_err;
 		}
 	}
+#ifdef CONFIG_MACH_LENOVO_TB8703
+	if (gpio_is_valid(ctrl_pdata->rst_gpio)) {
+		rc = gpio_request(ctrl_pdata->rst_gpio, "disp_rst_n");
+		if (rc) {
+			pr_err("request reset gpio failed, rc=%d\n",
+				rc);
+		}
+	}
+#else
 	rc = gpio_request(ctrl_pdata->rst_gpio, "disp_rst_n");
 	if (rc) {
 		pr_err("request reset gpio failed, rc=%d\n",
@@ -350,23 +424,26 @@ static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	}
 	if (gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
 		rc = gpio_request(ctrl_pdata->bklt_en_gpio,
-						"bklt_enable");
+			"bklt_enable");
 		if (rc) {
 			pr_err("request bklt gpio failed, rc=%d\n",
-				       rc);
+				rc);
 			goto bklt_en_gpio_err;
 		}
 	}
+#endif
 	if (gpio_is_valid(ctrl_pdata->mode_gpio)) {
 		rc = gpio_request(ctrl_pdata->mode_gpio, "panel_mode");
 		if (rc) {
 			pr_err("request panel mode gpio failed,rc=%d\n",
 								rc);
+#ifndef CONFIG_MACH_LENOVO_TB8703
 			goto mode_gpio_err;
+#endif
 		}
 	}
 	return rc;
-
+#ifndef CONFIG_MACH_LENOVO_TB8703
 mode_gpio_err:
 	if (gpio_is_valid(ctrl_pdata->bklt_en_gpio))
 		gpio_free(ctrl_pdata->bklt_en_gpio);
@@ -375,6 +452,7 @@ bklt_en_gpio_err:
 rst_gpio_err:
 	if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 		gpio_free(ctrl_pdata->disp_en_gpio);
+#endif
 disp_en_gpio_err:
 	return rc;
 }
@@ -440,7 +518,9 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	if (!gpio_is_valid(ctrl_pdata->rst_gpio)) {
 		pr_debug("%s:%d, reset line not configured\n",
 			   __func__, __LINE__);
+#ifndef CONFIG_MACH_LENOVO_TB8703
 		return rc;
+#endif
 	}
 
 	pr_debug("%s: enable = %d\n", __func__, enable);
@@ -479,6 +559,7 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 					usleep_range(pinfo->rst_seq[i] * 1000, pinfo->rst_seq[i] * 1000);
 			}
 
+#ifndef CONFIG_MACH_LENOVO_TB8703
 			if (gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
 				rc = gpio_direction_output(
 					ctrl_pdata->bklt_en_gpio, 1);
@@ -488,6 +569,7 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 					goto exit;
 				}
 			}
+#endif
 		}
 
 		if (gpio_is_valid(ctrl_pdata->mode_gpio)) {
@@ -512,16 +594,24 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			pr_debug("%s: Reset panel done\n", __func__);
 		}
 	} else {
+#ifndef CONFIG_MACH_LENOVO_TB8703
 		if (gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
 			gpio_set_value((ctrl_pdata->bklt_en_gpio), 0);
 			gpio_free(ctrl_pdata->bklt_en_gpio);
 		}
+#endif
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
 			gpio_free(ctrl_pdata->disp_en_gpio);
 		}
-		gpio_set_value((ctrl_pdata->rst_gpio), 0);
-		gpio_free(ctrl_pdata->rst_gpio);
+#ifdef CONFIG_MACH_LENOVO_TB8703
+		if (gpio_is_valid(ctrl_pdata->rst_gpio)) {
+#endif
+			gpio_set_value((ctrl_pdata->rst_gpio), 0);
+			gpio_free(ctrl_pdata->rst_gpio);
+#ifdef CONFIG_MACH_LENOVO_TB8703
+		}
+#endif
 		if (gpio_is_valid(ctrl_pdata->mode_gpio))
 			gpio_free(ctrl_pdata->mode_gpio);
 	}
@@ -530,6 +620,7 @@ exit:
 	return rc;
 }
 
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 static int mdss_dsi_get_pwr_mode(struct mdss_panel_data *pdata,
 			u8 *pwr_mode, bool hs_mode)
 {
@@ -557,6 +648,7 @@ static int mdss_dsi_get_pwr_mode(struct mdss_panel_data *pdata,
 
 	return 0;
 }
+#endif
 
 /**
  * mdss_dsi_roi_merge() -  merge two roi into single roi
@@ -602,7 +694,7 @@ static int mdss_dsi_roi_merge(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	return ans;
 }
-
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 int mdss_panel_parse_panel_config_dt(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct device_node *np;
@@ -664,13 +756,20 @@ int mdss_panel_parse_panel_config_dt(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 
 	return 0;
 }
+#endif
 static char caset[] = {0x2a, 0x00, 0x00, 0x03, 0x00};	/* DTYPE_DCS_LWRITE */
 static char paset[] = {0x2b, 0x00, 0x00, 0x05, 0x00};	/* DTYPE_DCS_LWRITE */
 
+
 /* pack into one frame before sent */
 static struct dsi_cmd_desc set_col_page_addr_cmd[] = {
+#ifdef CONFIG_LENOVO_MACH_KUNTAO
 	{{DTYPE_DCS_LWRITE, 0, 0, 0, 0, sizeof(caset)}, caset},	/* packed */
 	{{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(paset)}, paset},
+#else
+	{{DTYPE_DCS_LWRITE, 0, 0, 0, 1, sizeof(caset)}, caset}, /* packed */
+	{{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(paset)}, paset},
+#endif
 };
 
 static void mdss_dsi_send_col_page_addr(struct mdss_dsi_ctrl_pdata *ctrl,
@@ -912,6 +1011,13 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 		return;
 	}
 
+#ifdef CONFIG_MACH_LENOVO_TB8703
+	if (!mdss_panel_get_boot_cfg()) {
+		bl_level = 0;
+		pr_err("%s: not connect LCD found in lk cmdline,set bl_level to 0\n", __func__);
+	}
+#endif
+
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
@@ -978,6 +1084,7 @@ static void mdss_dsi_panel_on_hdmi(struct mdss_dsi_ctrl_pdata *ctrl,
 }
 #endif
 
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 void mdss_dsi_panel_forced_tx_mode_set(struct mdss_panel_info *pinfo,
 					bool enable)
 {
@@ -992,6 +1099,7 @@ u32 mdss_dsi_panel_forced_tx_mode_get(struct mdss_panel_info *pinfo)
 {
 	return pinfo->forced_tx_mode_state;
 }
+#endif
 
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 {
@@ -999,8 +1107,10 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	struct mdss_panel_info *pinfo;
 	struct dsi_panel_cmds *on_cmds;
 	int ret = 0;
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	u8 pwr_mode = 0;
 	static int panel_recovery_retry;
+#endif
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -1018,11 +1128,12 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 			goto end;
 	}
 
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (ctrl->panel_config.bare_board) {
 		pr_warn("%s: This is bare_board configuration\n", __func__);
 		goto end;
 	}
-
+#endif
 	on_cmds = &ctrl->on_cmds;
 
 	if ((pinfo->mipi.dms_mode == DYNAMIC_MODE_SWITCH_IMMEDIATE) &&
@@ -1042,7 +1153,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 
 	/* Ensure low persistence mode is set as before */
 	mdss_dsi_panel_apply_display_setting(pdata, pinfo->persist_mode);
-
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (ctrl->ds_registered)
 		mdss_dba_utils_video_on(pinfo->dba_data, pinfo);
 	mdss_dsi_get_pwr_mode(pdata, &pwr_mode, false);
@@ -1055,10 +1166,12 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 		pdata->panel_info.panel_dead = true;
 	} else
 		panel_recovery_retry = 0;
+#endif
 end:
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (pinfo->forced_tx_mode_ftr_enabled)
 		mdss_dsi_panel_forced_tx_mode_set(pinfo, true);
-
+#endif
 	pr_debug("%s:-\n", __func__);
 	return ret;
 }
@@ -1154,8 +1267,10 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 			goto end;
 	}
 
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (pinfo->forced_tx_mode_ftr_enabled)
 		mdss_dsi_panel_forced_tx_mode_set(pinfo, false);
+#endif
 
 	if (ctrl->off_cmds.cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds, CMD_REQ_COMMIT);
@@ -1278,11 +1393,13 @@ static int mdss_dsi_parse_dcs_cmds(struct device_node *np,
 		dchdr = (struct dsi_ctrl_hdr *)bp;
 		len -= sizeof(*dchdr);
 		bp += sizeof(*dchdr);
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 		if ((dchdr->wait != 0 || i == (cnt - 1)) && dchdr->last == 0) {
 			pr_warn("%s: correct \"last\" flag of DSI cmd 0x%02X of %s\n",
 				__func__, *bp, cmd_key);
 			dchdr->last = 1;
 		}
+#endif
 		pcmds->cmds[i].dchdr = *dchdr;
 		pcmds->cmds[i].payload = bp;
 		bp += dchdr->dlen;
@@ -1310,6 +1427,7 @@ exit_free:
 	return -ENOMEM;
 }
 
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 void mdss_dsi_panel_parse_forced_tx_mode(struct device_node *np,
 					struct mdss_panel_info *pinfo)
 {
@@ -1401,6 +1519,7 @@ err:
 	}
 	return rc;
 }
+#endif
 
 int mdss_panel_get_dst_fmt(u32 bpp, char mipi_mode, u32 pixel_packing,
 				char *dst_format)
@@ -1911,6 +2030,9 @@ static void mdss_panel_parse_te_params(struct device_node *np,
 	rc = of_property_read_u32
 		(np, "qcom,mdss-tear-check-rd-ptr-trigger-intr", &tmp);
 	te->rd_ptr_irq = (!rc ? tmp : timing->yres + 1);
+#ifndef CONFIG_MACH_LENOVO_KUNTAO
+	te->wr_ptr_irq = 0;
+#endif
 }
 
 
@@ -2277,8 +2399,10 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 	struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	struct mdss_panel_info *pinfo;
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	struct mdss_panel_config *pcfg;
 	int rc;
+#endif
 
 	if (!np || !ctrl) {
 		pr_err("%s: Invalid arguments\n", __func__);
@@ -2286,7 +2410,9 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 	}
 
 	pinfo = &ctrl->panel_data.panel_info;
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	pcfg = &ctrl->panel_config;
+#endif
 
 	pinfo->partial_update_supported = of_property_read_bool(np,
 		"qcom,partial-update-enabled");
@@ -2323,18 +2449,22 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 	pinfo->allow_phy_power_off = of_property_read_bool(np,
 		"qcom,panel-allow-phy-poweroff");
 
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (pcfg->bare_board || !pcfg->esd_enable) {
 		pinfo->esd_check_enabled = false;
 		pr_info("%s: ESD check disabled by bootloader panel config, bare_board = %d, esd_enable = %d\n",
 				__func__, pcfg->bare_board, pcfg->esd_enable);
 	} else
 		mdss_dsi_parse_esd_params(np, ctrl);
+#else
+	mdss_dsi_parse_esd_params(np, ctrl);
+#endif
 
 	if (pinfo->panel_ack_disabled && pinfo->esd_check_enabled) {
 		pr_warn("ESD should not be enabled if panel ACK is disabled\n");
 		pinfo->esd_check_enabled = false;
 	}
-
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	rc = of_property_read_u32(np,
 				"qcom,mdss-dsi-panel-on-check-value",
 				&pinfo->disp_on_check_val);
@@ -2342,7 +2472,7 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 
 	pinfo->no_panel_read_support = of_property_read_bool(np,
 					"qcom,mdss-dsi-no-panel-read-support");
-
+#endif
 	if (ctrl->disp_en_gpio <= 0) {
 		ctrl->disp_en_gpio = of_get_named_gpio(
 			np,
@@ -2352,8 +2482,9 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 			pr_debug("%s:%d, Disp_en gpio not specified\n",
 					__func__, __LINE__);
 	}
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	mdss_dsi_panel_parse_forced_tx_mode(np, pinfo);
-
+#endif
 	mdss_dsi_parse_dcs_cmds(np, &ctrl->lp_on_cmds,
 			"qcom,mdss-dsi-lp-mode-on", NULL);
 
@@ -2606,6 +2737,35 @@ void mdss_dsi_unregister_bl_settings(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	if (ctrl_pdata->bklt_ctrl == BL_WLED)
 		led_trigger_unregister_simple(bl_led_trigger);
 }
+
+#ifdef CONFIG_MACH_LENOVO_TB8703
+int  mdss_dsi_panel_lcden_gpio_ctrl(struct mdss_dsi_ctrl_pdata *ctrl_pdata, int on)
+{
+	int rc = 0;
+	if(ctrl_pdata == NULL )return -1;
+	if(ctrl_pdata->lcden_gpio <= 0 )return -1;
+	if(on){
+		if (gpio_is_valid(ctrl_pdata->lcden_gpio)) {
+			rc = gpio_request(ctrl_pdata->lcden_gpio, "lcd_en");
+			if (rc) {
+				pr_err("request lcd_en gpio failed, rc=%d\n", rc);
+				//return rc;
+			}
+		}
+		if (gpio_is_valid(ctrl_pdata->lcden_gpio)){
+			gpio_direction_output(ctrl_pdata->lcden_gpio, 1);
+			gpio_set_value((ctrl_pdata->lcden_gpio), 1);
+			mdelay(30);
+		}
+	}else{
+		if (gpio_is_valid(ctrl_pdata->lcden_gpio)){
+			gpio_set_value((ctrl_pdata->lcden_gpio), 0);
+			gpio_free(ctrl_pdata->lcden_gpio);
+		}
+	}
+	return rc;
+}
+#endif
 
 static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 		struct dsi_panel_timing *pt,
@@ -2934,6 +3094,10 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		else if (!strcmp(data, "vflip"))
 			pinfo->panel_orientation = MDP_FLIP_UD;
 	}
+#ifdef CONFIG_MACH_LENOVO_TB8703
+	ctrl_pdata->lcden_gpio = of_get_named_gpio(np,
+		"qcom,mdss-dsi-lcden-ctrl", 0);
+#endif
 
 	rc = of_property_read_u32(np, "qcom,mdss-brightness-max-level", &tmp);
 	pinfo->brightness_max = (!rc ? tmp : MDSS_MAX_BL_BRIGHTNESS);
@@ -3112,15 +3276,17 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	rc = mdss_panel_parse_dt_hdmi(np, ctrl_pdata);
 	if (rc)
 		goto error;
-
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	if (mdss_panel_parse_param_prop(np, pinfo, ctrl_pdata))
 		pr_err("Error parsing panel parameter properties\n");
-
+#endif
 	return 0;
 
 error:
 	return -EINVAL;
 }
+
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 static int mdss_dsi_panel_reg_read(struct mdss_panel_data *pdata,
 				u8 reg, size_t size, u8 *buffer, bool hs_mode)
 {
@@ -3288,6 +3454,7 @@ int mdss_dsi_panel_ioctl_handler(struct mdss_panel_data *pdata,
 
 	return rc;
 }
+#endif
 
 int mdss_dsi_panel_init(struct device_node *node,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata,
@@ -3314,6 +3481,17 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 		strlcpy(&pinfo->panel_name[0], panel_name, MDSS_MAX_PANEL_LEN);
 	}
+#ifdef CONFIG_TOUCHSCREEN_HIMAX_HX852XF
+//qijin add for compatible with the 2 FW of himax ,AUO and INX
+        if (0 == strcmp(panel_name,PANLE_NAME_AUO)) {
+            panel_id_ret = 0;
+        }else if(0 == strcmp(panel_name,PANLE_NAME_INX)){
+            panel_id_ret = 1;
+        }else{
+            panel_id_ret = 2;
+        }
+//qijin add end
+#endif
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
 		pr_err("%s:%d panel dt parse failed\n", __func__, __LINE__);
@@ -3334,7 +3512,8 @@ int mdss_dsi_panel_init(struct device_node *node,
 			mdss_dsi_panel_apply_display_setting;
 	ctrl_pdata->switch_mode = mdss_dsi_panel_switch_mode;
 	ctrl_pdata->panel_data.get_idle = mdss_dsi_panel_get_idle_mode;
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	ctrl_pdata->panel_data.set_param = mdss_dsi_panel_set_param;
-
+#endif
 	return 0;
 }
