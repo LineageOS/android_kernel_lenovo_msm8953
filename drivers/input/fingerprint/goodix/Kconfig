@@ -1,0 +1,5 @@
+config FINGERPRINT_GOODIX_GF3206
+				tristate "Goodix GF3206 fingerprint drvier support"
+				depends on INPUT_FINGERPRINT
+				help
+				  Say Y here to enable goodix fingerprint driver support!
