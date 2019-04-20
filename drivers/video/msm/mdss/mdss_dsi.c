@@ -26,7 +26,6 @@
 #include <linux/uaccess.h>
 #include <linux/msm-bus.h>
 #include <linux/pm_qos.h>
-
 #include "mdss.h"
 #include "mdss_panel.h"
 #include "mdss_dsi.h"
@@ -46,6 +45,11 @@ static struct mdss_dsi_data *mdss_dsi_res;
 static struct pm_qos_request mdss_dsi_pm_qos_request;
 #ifdef CONFIG_MACH_LENOVO_TB8703
 extern int mdss_dsi_panel_lcden_gpio_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int on);
+#endif
+#ifdef CONFIG_MACH_LENOVO_TBX704
+/* Add-Begin by Phoenix.Wu for Achillies4 Plus LCD */
+static int lcd_power_en,lcd_level_shift;
+/* Add-end by Phoenix.Wu for Achillies4 Plus LCD */
 #endif
 
 static void mdss_dsi_pm_qos_add_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
@@ -304,8 +308,37 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 	if (ret)
 		pr_err("%s: failed to disable vregs for %s\n",
 			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+#ifdef CONFIG_MACH_LENOVO_TBX704
+	/* Add-Begin by Phoenix.Wu for Achillies4 Plus LCD */
+	if (gpio_is_valid(lcd_power_en)){
+		ret = gpio_request(lcd_power_en,"lcd_power_enable");
+			if (ret) {
+			pr_err("request lcd_power_enable gpio failed, ret=%d\n",ret);
+				}
+					}
 
+	if (gpio_is_valid(lcd_level_shift)){
+		ret = gpio_request(lcd_level_shift,"lcd_level_shift_enable");
+			if (ret) {
+			pr_err("request lcd_level_shift_enable failed, ret=%d\n",ret);
+				}
+					}
+
+	if (gpio_is_valid(lcd_level_shift)){
+		gpio_direction_output(lcd_level_shift,0);
+		gpio_free(lcd_level_shift);
+	}
+	mdelay(5);
+	if (gpio_is_valid(lcd_power_en)){
+		gpio_direction_output(lcd_power_en,0);
+		gpio_free(lcd_power_en);
+	}
+	/* Add-end by Phoenix.Wu for Achillies4 Plus LCD */
+
+	msleep(400);
+	#endif
 end:
+
 	return ret;
 }
 
@@ -318,6 +351,31 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
+	#ifdef CONFIG_MACH_LENOVO_TBX704
+	/* Add-Begin by Phoenix.Wu for Achillies4 Plus LCD */
+	if (!pdata->panel_info.cont_splash_enabled){
+		if (gpio_is_valid(lcd_power_en)){
+			ret = gpio_request(lcd_power_en,"lcd_power_enable");
+			if (ret) {
+				pr_err("request lcd_power_enable gpio failed, ret=%d\n",ret);
+			}
+		}
+
+		if (gpio_is_valid(lcd_level_shift)){
+			ret = gpio_request(lcd_level_shift,"lcd_level_shift_enable");
+			if (ret) {
+				pr_err("request lcd_level_shift_enable gpio failed, ret=%d\n",ret);
+			}
+		}
+		gpio_direction_output(lcd_power_en,1);
+		//mdelay(20);
+		gpio_direction_output(lcd_level_shift,1);
+		//mdelay(20);
+		gpio_free(lcd_power_en);
+		gpio_free(lcd_level_shift);
+		}
+	/* Add-end by Phoenix.Wu for Achillies4 Plus LCD */
+	#endif
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
@@ -2830,12 +2888,17 @@ static struct device_node *mdss_dsi_pref_prim_panel(
  *
  * returns pointer to panel node on success, NULL on error.
  */
+ #ifdef CONFIG_MACH_LENOVO_TBX704
+static char panel_name[MDSS_MAX_PANEL_LEN] = "";
+#endif
 static struct device_node *mdss_dsi_find_panel_of_node(
 		struct platform_device *pdev, char *panel_cfg)
 {
 	int len, i = 0;
 	int ctrl_id = pdev->id - 1;
+#ifndef CONFIG_MACH_LENOVO_TBX704
 	char panel_name[MDSS_MAX_PANEL_LEN] = "";
+#endif
 	char ctrl_id_stream[3] =  "0:";
 	char *str1 = NULL, *str2 = NULL, *override_cfg = NULL;
 	char cfg_np_name[MDSS_MAX_PANEL_LEN] = "";
@@ -2896,6 +2959,7 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 		}
 		pr_info("%s: cmdline:%s panel_name:%s\n",
 			__func__, panel_cfg, panel_name);
+
 		if (!strcmp(panel_name, NONE_PANEL))
 			goto exit;
 
@@ -4124,7 +4188,23 @@ static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 	if (!gpio_is_valid(ctrl_pdata->rst_gpio))
 		pr_err("%s:%d, reset gpio not specified\n",
 						__func__, __LINE__);
+#ifdef CONFIG_MACH_LENOVO_TBX704
+	/* Add-Begin by Phoenix.Wu for Achillies4 Plus LCD */
+	pr_err("get lcd_power_en gpio \n");
+	lcd_power_en = of_get_named_gpio(ctrl_pdev->dev.of_node,
+			 "qcom,platform-power-en-gpio", 0);
+	if (!gpio_is_valid(lcd_power_en))
+		pr_err("%s:%d, lcd_power_en gpio not specified\n",
+						__func__, __LINE__);
 
+	pr_err("get lcd_level_shift gpio \n");
+	lcd_level_shift = of_get_named_gpio(ctrl_pdev->dev.of_node,
+			 "qcom,platform-lcd-level-shift-en-gpio", 0);
+	if (!gpio_is_valid(lcd_level_shift))
+		pr_err("%s:%d, lcd_level_shift gpio not specified\n",
+						__func__, __LINE__);
+	/* Add-end by Phoenix.Wu for Achillies4 Plus LCD */
+#endif
 	if (pinfo->mode_gpio_state != MODE_GPIO_NOT_VALID) {
 
 		ctrl_pdata->mode_gpio = of_get_named_gpio(
