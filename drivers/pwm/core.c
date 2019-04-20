@@ -110,10 +110,10 @@ static struct pwm_chip *pwmchip_find_by_name(const char *name)
 static int pwm_device_request(struct pwm_device *pwm, const char *label)
 {
 	int err;
-
+#ifndef CONFIG_MACH_LENOVO_TBX704
 	if (test_bit(PWMF_REQUESTED, &pwm->flags))
 		return -EBUSY;
-
+#endif
 	if (!try_module_get(pwm->chip->ops->owner))
 		return -ENODEV;
 

@@ -1769,6 +1769,10 @@ EXPORT_SYMBOL(pwm_config_us);
  * @duty_pct: array of duty cycles in percent, like 20, 50.
  * @lut_params: Lookup table parameters
  */
+#ifdef CONFIG_MACH_LENOVO_TBX704
+static int qpnp_parse_dt_config(struct spmi_device *spmi,
+					struct qpnp_pwm_chip *chip);
+#endif
 int pwm_lut_config(struct pwm_device *pwm, int period_us,
 		int duty_pct[], struct lut_params lut_params)
 {
@@ -1793,6 +1797,12 @@ int pwm_lut_config(struct pwm_device *pwm, int period_us,
 
 	if (chip->flags & QPNP_PWM_LUT_NOT_SUPPORTED) {
 		pr_err("LUT mode isn't supported\n");
+#ifdef CONFIG_MACH_LENOVO_TBX704
+		rc = qpnp_parse_dt_config(chip->spmi_dev, chip);
+		if (rc) {
+				pr_err("Failed parsing DT parameters, rc=%d\n", rc);
+			}
+#endif
 		return -EINVAL;
 	}
 
