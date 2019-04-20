@@ -35,6 +35,19 @@
 #include <linux/string_helpers.h>
 #include <linux/alarmtimer.h>
 #include <linux/qpnp/qpnp-revid.h>
+#ifdef CONFIG_MACH_LENOVO_TBX704
+#include "couloMeter.h"  //stone add
+
+///* stone add for debug start *///
+//#define DEBUG
+#define  COULOMETER_QPNP_FG_DEBUG
+#ifdef   COULOMETER_QPNP_FG_DEBUG
+#define LOG_INF pr_err
+#else
+#define LOG_INF pr_debug
+#endif
+///* stone add for debug end *///
+#endif
 
 /* Register offsets */
 
@@ -334,7 +347,11 @@ module_param_named(
 	battery_type, fg_batt_type, charp, S_IRUSR | S_IWUSR
 );
 
+#ifdef CONFIG_MACH_LENOVO_TBX704
+static int fg_sram_update_period_ms = 3000;
+#else
 static int fg_sram_update_period_ms = 30000;
+#endif
 module_param_named(
 	sram_update_period_ms, fg_sram_update_period_ms, int, S_IRUSR | S_IWUSR
 );
@@ -644,6 +661,9 @@ struct fg_chip {
 	int			batt_info_id;
 	bool			batt_info_restore;
 	bool			*batt_range_ocv;
+	#ifdef CONFIG_MACH_LENOVO_TBX704
+	int       fg_soc_changed;
+	#endif
 	int			*batt_range_pct;
 };
 
@@ -2032,7 +2052,7 @@ static void fg_handle_battery_insertion(struct fg_chip *chip)
 	schedule_delayed_work(&chip->update_sram_data, msecs_to_jiffies(0));
 }
 
-#ifndef CONFIG_MACH_LENOVO_TB8703
+#if !defined(CONFIG_MACH_LENOVO_TB8703) && !defined(CONFIG_MACH_LENOVO_TBX704)
 static int soc_to_setpoint(int soc)
 {
 	return DIV_ROUND_CLOSEST(soc * 255, 100);
@@ -4651,6 +4671,9 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_ENABLE_JEITA_DETECTION,
 	POWER_SUPPLY_PROP_BATTERY_INFO,
 	POWER_SUPPLY_PROP_BATTERY_INFO_ID,
+#ifdef CONFIG_MACH_LENOVO_TBX704
+	POWER_SUPPLY_PROP_CALIBRATE,
+#endif
 };
 
 static int fg_power_get_property(struct power_supply *psy,
@@ -4712,7 +4735,16 @@ static int fg_power_get_property(struct power_supply *psy,
 		val->intval = chip->cyc_ctr.id;
 		break;
 	case POWER_SUPPLY_PROP_RESISTANCE_ID:
-		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ID);
+#ifdef CONFIG_MACH_LENOVO_TBX704
+		 val->intval = cm_get_ID1();
+		if(val->intval == 0x21)
+		     val->intval = 100000;
+		else
+		val->intval =1000000;
+#else
+    val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ID);
+#endif
+		
 		break;
 	case POWER_SUPPLY_PROP_UPDATE_NOW:
 		val->intval = 0;
@@ -4759,6 +4791,11 @@ static int fg_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_BATTERY_INFO_ID:
 		val->intval = chip->batt_info_id;
 		break;
+#ifdef CONFIG_MACH_LENOVO_TBX704
+	case POWER_SUPPLY_PROP_CALIBRATE:
+		val->intval = chip->fg_soc_changed;
+		break;
+#endif
 	default:
 		return -EINVAL;
 	}
@@ -4893,6 +4930,11 @@ static int fg_power_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_BATTERY_INFO_ID:
 		chip->batt_info_id = val->intval;
 		break;
+#ifdef CONFIG_MACH_LENOVO_TBX704
+	case POWER_SUPPLY_PROP_CALIBRATE:
+		chip->fg_soc_changed = val->intval;
+		break;
+#endif
 	default:
 		return -EINVAL;
 	};
@@ -5439,6 +5481,9 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	u8 soc_rt_sts;
 	int rc, msoc;
 
+#ifdef CONFIG_MACH_LENOVO_TBX704
+   chip->fg_soc_changed = 1;
+#endif
 	rc = fg_read(chip, &soc_rt_sts, INT_RT_STS(chip->soc_base), 1);
 	if (rc) {
 		pr_err("spmi read failed: addr=%03X, rc=%d\n",
@@ -5642,6 +5687,7 @@ done:
 #define RSLOW_COMP_C1_OFFSET		0
 #define RSLOW_COMP_C2_OFFSET		2
 #define BATT_PROFILE_OFFSET		0x4C0
+#ifndef CONFIG_MACH_LENOVO_TBX704
 static void get_default_rslow_comp_settings(struct fg_chip *chip)
 {
 	int offset;
@@ -5659,6 +5705,7 @@ static void get_default_rslow_comp_settings(struct fg_chip *chip)
 	offset = RSLOW_COMP_REG + RSLOW_COMP_C1_OFFSET - BATT_PROFILE_OFFSET;
 	memcpy(&chip->rslow_comp.rslow_comp, chip->batt_profile + offset, 4);
 }
+#endif
 
 static int populate_system_data(struct fg_chip *chip)
 {
@@ -5712,7 +5759,41 @@ static int populate_system_data(struct fg_chip *chip)
 				chip->ocv_junction_p1p2,
 				chip->ocv_junction_p2p3);
 
+#ifdef CONFIG_MACH_LENOVO_TBX704
+	rc = fg_mem_read(chip, buffer, RSLOW_CFG_REG, 1, RSLOW_CFG_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to read rslow cfg: %d\n", rc);
+		goto done;
+	}
+
+	chip->rslow_comp.rslow_cfg = buffer[0];
+	rc = fg_mem_read(chip, buffer, RSLOW_THRESH_REG, 1,
+			RSLOW_THRESH_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to read rslow thresh: %d\n", rc);
+		goto done;
+	}
+
+	chip->rslow_comp.rslow_thr = buffer[0];
+	rc = fg_mem_read(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
+			RS_TO_RSLOW_CHG_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to read rs to rslow_chg: %d\n", rc);
+		goto done;
+	}
+
+	memcpy(chip->rslow_comp.rs_to_rslow, buffer, 2);
+	rc = fg_mem_read(chip, buffer, RSLOW_COMP_REG, 4,
+			RSLOW_COMP_C1_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to read rslow comp: %d\n", rc);
+		goto done;
+	}
+
+	memcpy(chip->rslow_comp.rslow_comp, buffer, 4);
+#else
 	get_default_rslow_comp_settings(chip);
+#endif
 done:
 	fg_mem_release(chip);
 	return rc;
@@ -6059,8 +6140,11 @@ done:
 	fg_mem_release(chip);
 	return rc;
 }
-
+#ifdef CONFIG_MACH_LENOVO_TBX704
+#define ESR_EXTRACT_STOP_SOC		100
+#else
 #define ESR_EXTRACT_STOP_SOC		2
+#endif
 #define IMPTR_PULSE_CONFIG_SOC		5
 static void esr_extract_config_work(struct work_struct *work)
 {
@@ -6136,6 +6220,9 @@ static void discharge_gain_work(struct work_struct *work)
 }
 
 #define LOW_LATENCY			BIT(6)
+#ifdef CONFIG_MACH_LENOVO_TBX704
+#define BATT_PROFILE_OFFSET		0x4C0
+#endif
 #define PROFILE_INTEGRITY_REG		0x53C
 #define PROFILE_INTEGRITY_BIT		BIT(0)
 #define FIRST_EST_DONE_BIT		BIT(5)
@@ -8101,7 +8188,9 @@ static int fg_common_hw_init(struct fg_chip *chip)
 	int rc;
 	int resume_soc_raw;
 	u8 val;
-
+#ifdef CONFIG_MACH_LENOVO_TBX704
+	fg_sec_masked_write(chip, chip->batt_base + 0xF5, 0x1, 0, 1);
+#endif
 	update_iterm(chip);
 	update_cutoff_voltage(chip);
 	update_bcl_thresholds(chip);
@@ -8129,7 +8218,7 @@ static int fg_common_hw_init(struct fg_chip *chip)
 	}
 
 	rc = fg_mem_masked_write(chip, settings[FG_MEM_DELTA_SOC].address, 0xFF,
-#ifdef CONFIG_MACH_LENOVO_TB8703
+#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704)
 			settings[FG_MEM_DELTA_SOC].value,
 #else
 			soc_to_setpoint(settings[FG_MEM_DELTA_SOC].value),
@@ -8803,6 +8892,9 @@ static int fg_probe(struct spmi_device *spmi)
 
 	chip->spmi = spmi;
 	chip->dev = &(spmi->dev);
+#ifdef CONFIG_MACH_LENOVO_TBX704
+	chip->fg_soc_changed = 0;
+#endif
 
 	wakeup_source_init(&chip->empty_check_wakeup_source.source,
 			"qpnp_fg_empty_check");

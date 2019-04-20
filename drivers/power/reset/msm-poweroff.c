@@ -436,6 +436,14 @@ static void do_msm_poweroff(void)
 	return;
 }
 
+#ifdef CONFIG_MACH_LENOVO_TBX704
+void export_do_msm_poweroff(void)
+{
+	do_msm_poweroff();
+}
+EXPORT_SYMBOL( export_do_msm_poweroff);
+#endif
+
 #ifdef CONFIG_MSM_DLOAD_MODE
 static ssize_t attr_show(struct kobject *kobj, struct attribute *attr,
 				char *buf)

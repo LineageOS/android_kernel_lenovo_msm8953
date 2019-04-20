@@ -51,7 +51,11 @@
 
 #define TYPEC_SW_CTL_REG(base)		(base + 0x52)
 
+#ifdef CONFIG_MACH_LENOVO_TBX704
+#define TYPEC_STD_MA			500
+#else
 #define TYPEC_STD_MA			900
+#endif
 #define TYPEC_MED_MA			1500
 #define TYPEC_HIGH_MA			3000
 
@@ -343,6 +347,9 @@ static int qpnp_typec_handle_usb_insertion(struct qpnp_typec_chip *chip, u8 reg)
 
 	cc_line_state = (reg & TYPEC_CCOUT_OPEN_BIT) ?
 		OPEN : (reg & TYPEC_CCOUT_BIT) ? CC_2 : CC_1;
+#ifdef CONFIG_MACH_LENOVO_TBX704
+	pr_err("lvchen cc_line_state=%d",cc_line_state);
+#endif
 	rc = qpnp_typec_configure_ssmux(chip, cc_line_state);
 	if (rc) {
 		pr_err("failed to configure ss-mux rc=%d\n", rc);
@@ -676,8 +683,13 @@ static int qpnp_typec_request_irqs(struct qpnp_typec_chip *chip)
 static enum power_supply_property qpnp_typec_properties[] = {
 	POWER_SUPPLY_PROP_CURRENT_CAPABILITY,
 	POWER_SUPPLY_PROP_TYPE,
+#ifdef CONFIG_MACH_LENOVO_TBX704
+	POWER_SUPPLY_PROP_TYPEC_ORIENTATION,
+#endif
 };
-
+#ifdef CONFIG_MACH_LENOVO_TBX704
+extern int typeC_orientation;
+#endif
 static int qpnp_typec_get_property(struct power_supply *psy,
 				enum power_supply_property prop,
 				union power_supply_propval *val)
@@ -692,12 +704,41 @@ static int qpnp_typec_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_CAPABILITY:
 		val->intval = chip->current_ma;
 		break;
+#ifdef CONFIG_MACH_LENOVO_TBX704
+	case POWER_SUPPLY_PROP_TYPEC_ORIENTATION:
+		val->intval = typeC_orientation;
+		break;
+#endif
 	default:
 		return -EINVAL;
 	}
 
 	return 0;
 }
+
+#ifdef CONFIG_MACH_LENOVO_TBX704
+static int qpnp_typec_set_property(struct power_supply *psy,
+				enum power_supply_property prop,
+				const union power_supply_propval *val)
+{
+
+	struct qpnp_typec_chip *chip = container_of(psy,
+					struct qpnp_typec_chip, type_c_psy);
+	u8 value;
+	switch (prop) {
+	case POWER_SUPPLY_PROP_TYPEC_ORIENTATION:
+		//val->intval = typeC_orientation;
+	value= ( (val->intval)<<5)  | ( ( val->intval) <<7  );
+	pr_err("lvchen value = %d, val->intval=%d\n",value, val->intval);
+	qpnp_typec_handle_usb_insertion(chip, value);
+	break;
+default:
+	return -EINVAL;
+}
+return 0;
+
+}
+#endif
 
 #define ROLE_REVERSAL_DELAY_MS		500
 static void qpnp_typec_role_check_work(struct work_struct *work)
@@ -911,6 +952,9 @@ static int qpnp_typec_probe(struct spmi_device *spmi)
 
 	chip->type_c_psy.name		= TYPEC_PSY_NAME;
 	chip->type_c_psy.get_property	= qpnp_typec_get_property;
+#ifdef CONFIG_MACH_LENOVO_TBX704
+	chip->type_c_psy.set_property     =  qpnp_typec_set_property;
+#endif
 	chip->type_c_psy.properties	= qpnp_typec_properties;
 	chip->type_c_psy.num_properties	= ARRAY_SIZE(qpnp_typec_properties);
 
