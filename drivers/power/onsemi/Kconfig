@@ -1,0 +1,6 @@
+config USB_FUSB302
+	bool "FUSB302 type-c PD support"
+	help
+	  Say Y here to enable type-c PD support.
+
+
