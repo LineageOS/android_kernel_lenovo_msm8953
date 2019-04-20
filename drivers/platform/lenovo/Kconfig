@@ -27,4 +27,10 @@ config MACH_LENOVO_TB8703
 	help
 	  Support for Lenovo Tab3 8 Plus (TB8703)
 
+config MACH_LENOVO_TBX704
+	bool "TBX704 board"
+	select MACH_LENOVO_MSM8953
+	help
+	  Support for Lenovo Tab 4 10 Plus (TBX704)
+
 endmenu

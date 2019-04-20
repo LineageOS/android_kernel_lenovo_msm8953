@@ -245,6 +245,8 @@ dtb-$(CONFIG_MACH_LENOVO_KUNTAO) += \
 dtb-$(CONFIG_MACH_LENOVO_TB8703) += \
         tb8703-apq8053-mtp.dtb \
         tb8703-msm8953-mtp.dtb
+dtb-$(CONFIG_MACH_LENOVO_TBX704) += \
+        tbx704-msm8953-qrd.dtb
 else
 dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
 	msm8953-rumi.dtb \

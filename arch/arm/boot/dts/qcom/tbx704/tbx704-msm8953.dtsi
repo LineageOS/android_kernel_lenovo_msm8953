@@ -1,0 +1,125 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	qcom,msm-id = <293 0x0>, <304 0x0>;
+	reserved-memory {
+		other_ext_mem: other_ext_region@0 {
+			reg = <0x0 0x83b00000 0x0 0x2d00000>;
+		};
+		ramoops_mem: ramoops_region@0 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x8ee00000 0x0 0x80000>;
+		};
+	};
+
+        firmware {
+                android {
+                        fstab {
+				/delete-node/ vendor;
+                        };
+                };
+        };
+
+};
+
+
+&soc {
+	ramoops {
+		compatible = "ramoops";
+		status = "ok";
+
+		/* This is tacked at the end of wcnss_fw_region@0 */
+		android,ramoops-buffer-start = <0x8ee00000>;
+		android,ramoops-buffer-size = <0x80000>;
+		android,ramoops-console-size = <0x40000>;
+		android,ramoops-pmsg-size = <0x20000>;
+		android,ramoops-record-size = <0x5000>;
+		android,ramoops-ftrace-size = <0x15000>;
+		android,ramoops-dump-oops = <0x1>;
+		linux,contiguous-region = <&ramoops_mem>;
+	};
+
+	tsens: tsens@4a8000 {
+		/delete-property/ qcom,client-id;
+		/delete-property/ qcom,sensor-id;
+		qcom,sensors = <16>;
+		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
+					3200 3200 3200 3200 3200 3200 3200>;
+	};
+
+	qcom,wcnss-wlan@0a000000 {
+		clocks = <&clock_gcc clk_xo_wlan_clk>,
+			 <&clock_gcc clk_rf_clk2>,
+			 <&clock_debug clk_gcc_debug_mux>,
+			 <&clock_gcc clk_wcnss_m_clk>,
+                        <&clock_gcc clk_snoc_wcnss_a_clk>;
+
+		clock-names = "xo", "rf_clk", "measure", "wcnss_debug",
+                                "snoc_wcnss";
+
+                qcom,snoc-wcnss-clock-freq = <200000000>;
+	};
+
+	/delete-node/ qseecom@85b00000;
+
+	qcom_seecom: qseecom@83b00000 {
+		compatible = "qcom,qseecom";
+		reg = <0x83b00000 0x2800000>;
+		reg-names = "secapp-region";
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,support-fde;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,support-bus-scaling;
+		qcom,appsbl-qseecom-support;
+		qcom,msm-bus,vectors-KBps =
+			<55 512 0 0>,
+			<55 512 0 0>,
+			<55 512 120000 1200000>,
+			<55 512 393600 3936000>;
+		clocks = <&clock_gcc clk_crypto_clk_src>,
+			 <&clock_gcc clk_gcc_crypto_clk>,
+			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
+			 <&clock_gcc clk_gcc_crypto_axi_clk>;
+		clock-names = "core_clk_src", "core_clk",
+				"iface_clk", "bus_clk";
+		qcom,ce-opp-freq = <100000000>;
+	};
+
+	usb3: ssusb@7000000{
+		vbus_dwc3-supply = <&smbcharger_charger_otg>;
+	};
+};
+
+&pm8953_vadc {
+	chan@11 {
+		label = "case_therm";
+		reg = <0x11>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
+	};
+
+	/delete-node/chan@13;
+};
+

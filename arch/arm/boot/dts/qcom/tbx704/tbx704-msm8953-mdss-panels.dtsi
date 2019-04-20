@@ -1,0 +1,58 @@
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "dsi-panel-nt51021b-inx-wuxga-video.dtsi"
+#include "dsi-panel-nt51021bboe-inx-wuxga-video.dtsi"
+
+&soc {
+	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
+		qcom,panel-supply-entry@2 {
+			reg = <2>;
+			qcom,supply-name = "lab";
+			qcom,supply-min-voltage = <4600000>;
+			qcom,supply-max-voltage = <6000000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@3 {
+			reg = <3>;
+			qcom,supply-name = "ibb";
+			qcom,supply-min-voltage = <4600000>;
+			qcom,supply-max-voltage = <6000000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-post-on-sleep = <10>;
+		};
+	};
+};
+
+/* Add-Begin by Phoenix.Wu for Achillies4 Plus LCD */
+&dsi_nt51021b_inx_wuxga_vid {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [24 20 08 0a 05 03 04 a0
+		24 20 08 0a 05 03 04 a0
+		24 20 08 0a 05 03 04 a0
+		24 20 08 0a 05 03 04 a0
+		24 1d 08 0a 05 03 04 a0];
+};
+/* Add-end by Phoenix.Wu for Achillies4 Plus LCD */
+
+//add for 2th oem lcd by zch
+&dsi_nt51021bboe_inx_wuxga_vid {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [24 20 08 0a 05 03 04 a0
+		24 20 08 0a 05 03 04 a0
+		24 20 08 0a 05 03 04 a0
+		24 20 08 0a 05 03 04 a0
+		24 1d 08 0a 05 03 04 a0];
+};
+
+
