@@ -18,7 +18,9 @@
 #include <linux/stat.h>
 
 #include "power_supply.h"
-
+#ifdef CONFIG_MACH_LENOVO_TBX704
+int g_chargerState = 0;
+#endif
 /*
  * This is because the name "current" breaks the device attr macro.
  * The "current" word resolves to "(get_current())" so instead of
@@ -278,6 +280,9 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(safety_timer_expired),
 	POWER_SUPPLY_ATTR(restricted_charging),
 	POWER_SUPPLY_ATTR(current_capability),
+#ifdef CONFIG_MACH_LENOVO_TBX704
+	POWER_SUPPLY_ATTR(typeC_orientation),
+#endif
 	POWER_SUPPLY_ATTR(typec_mode),
 	POWER_SUPPLY_ATTR(allow_hvdcp3),
 	POWER_SUPPLY_ATTR(max_pulse_allowed),
@@ -438,6 +443,22 @@ int power_supply_uevent(struct device *dev, struct kobj_uevent_env *env)
 		dev_dbg(dev, "prop %s=%s\n", attrname, prop_buf);
 
 		ret = add_uevent_var(env, "POWER_SUPPLY_%s=%s", attrname, prop_buf);
+#ifdef CONFIG_MACH_LENOVO_TBX704
+                if(0==strcmp(attrname,"STATUS"))
+                   {
+                      //printk("psy====POWER_SUPPLY_%s=%s\n", attrname, prop_buf);
+                      if((0==strcmp(prop_buf,"Charging")) ||(0==strcmp(prop_buf,"Full")))
+                        {
+                           // printk("psy======charging!!!\n");
+                            g_chargerState =1;
+                        }
+                      else
+                      {
+                         // printk("psy======discharging!!!\n");
+                          g_chargerState =0;
+                        }
+                    }
+#endif
 		kfree(attrname);
 		if (ret)
 			goto out;
