@@ -1,0 +1,208 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+&soc {
+	goodix_fp {
+		compatible = "goodix,fingerprint";
+		spi-max-frequency = <1000000>;
+		input-device-name = "gf3206";
+		interrupt-parent = <&tlmm>;
+		interrupts = <48 0>;
+		goodix,gpio_reset    = <&tlmm 140 0>;
+		goodix,gpio_irq      = <&tlmm 48 0>;
+			
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+		<&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
+
+		pinctrl-names = "goodixfp_spi_active",
+			"goodixfp_reset_reset",
+			"goodixfp_reset_active",
+			"goodixfp_irq_active";
+
+		pinctrl-0 = <&goodix_spi_active>;
+		pinctrl-1 = <&goodix_reset_reset>;
+		pinctrl-2 = <&goodix_reset_active>;
+		pinctrl-3 = <&goodix_irq_active>;
+	};
+
+	i2c@78b7000 { /* BLSP1 QUP3 */
+		/delete-node/ synaptics@4b;
+		goodix_ts@5d {
+			compatible = "goodix,gt9xx";
+			reg = <0x5d>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <65 0x2008>;
+			vdd_ana-supply = <&pm8953_l10>;
+			vcc_i2c-supply = <&pm8953_l6>;
+			goodix,rst-gpio = <&tlmm 64 0x00>;
+			goodix,irq-gpio = <&tlmm 65 0x00>;
+			pinctrl-names = "pmx_ts_active",
+						"pmx_ts_suspend",
+						"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			goodix,cfg-group0 = [
+                        44 B0 04 80 07 0A 34 12 11 C4 32
+			0D 55 3C 3A 14 00 00 1F AA 11 11
+			00 17 19 1C 14 95 35 FF 33 35 36
+			11 2A 65 00 20 43 1C 15 15 16 9C
+			83 03 37 37 2B 08 1B 28 5A 94 C5
+			F3 23 28 19 04 BE 2B 60 B3 33 AA
+			AD 3C 88 AC 46 20 AB 53 0C AB 64
+			32 78 46 4A 50 30 18 30 12 33 A0
+			22 43 0A 73 43 05 0F 00 00 04 AA
+			68 88 56 65 99 1E 02 28 1E 40 00
+			2D 19 1D 1C 1B 1A 19 18 17 16 15
+			14 13 12 11 10 0F 0E 0D 0C 0B 0A
+			09 08 07 06 05 04 03 02 01 00 2A
+			29 28 27 26 25 24 23 22 21 20 1F
+			1E 1D 1C 1B 19 18 17 16 15 14 13
+			12 11 10 0F 0E 0D 0C 0B 0A 09 08
+			07 06 05 04 03 02 01 00 86 01
+			];
+			goodix,cfg-group2 = [
+                        44 B0 04 80 07 0A 34 12 11 C4 32
+			0D 55 3C 3A 14 00 00 1F AA 11 11
+			00 17 19 1C 14 95 35 FF 33 35 36
+			11 2A 65 00 20 43 1C 15 15 16 9C
+			83 03 37 37 2B 08 1B 28 5A 94 C5
+			F3 23 28 19 04 98 2B 60 8C 33 AA
+			85 3C 88 84 46 20 83 53 0C 83 64
+			32 78 46 4A 50 30 18 30 12 33 A0
+			22 43 0A 73 43 05 0F 00 00 04 AA
+			68 88 56 65 99 1E 02 28 1E 40 00
+			2D 19 1D 1C 1B 1A 19 18 17 16 15
+			14 13 12 11 10 0F 0E 0D 0C 0B 0A
+			09 08 07 06 05 04 03 02 01 00 2A
+			29 28 27 26 25 24 23 22 21 20 1F
+			1E 1D 1C 1B 19 18 17 16 15 14 13
+			12 11 10 0F 0E 0D 0C 0B 0A 09 08
+			07 06 05 04 03 02 01 00 73 01
+			];
+			goodix,cfg-group7 = [
+			53 B0 04 80 07 0A F4 10 11 C8 3C
+			0D 55 3C 3A 14 00 00 09 AA 22 22
+			00 17 19 1C 14 95 35 FF 4B 4D 36
+			11 3A 00 00 42 43 1C 18 16 1E 90
+			82 13 64 64 28 4A 0A 32 5A 94 C5
+			F5 23 28 1E 04 82 35 00 85 3B AC
+			86 43 00 88 4B 00 8F 55 0C 8F 00
+			00 00 00 00 00 00 00 00 00 00 00
+			23 0A A6 52 43 25 07 00 00 04 44
+			00 00 88 A5 99 23 02 00 1E 40 00
+			41 1E 1D 1C 1B 1A 19 18 17 16 15
+			14 13 12 11 10 0F 0E 0D 0C 0B 0A
+			09 08 07 06 05 04 03 02 01 00 2A
+			29 28 27 26 25 24 23 22 21 20 1F
+			1E 1D 1C 1B 19 18 17 16 15 14 13
+			12 11 10 0F 0E 0D 0C 0B 0A 09 08
+			07 06 05 04 03 02 01 00 AB 01
+			];
+		};
+	};
+	/delete-node/ vdd_vreg;
+};
+
+&spmi_bus {
+	qcom,pmi8950@2 {
+		qcom,leds@a100 {
+			/delete-property/ status;
+			/delete-node/ qcom,led_mpp_2;
+		};
+	};
+};
+
+/{
+	qrd_batterydata: qcom,battery-data {
+		/delete-node/ qcom,qrd_msm8937_sku1_2920mah;
+		#include "Huaqin_A609x_7000mAh_averaged_MasterSlave.dtsi"
+                #include "Huaqin_A609x_7000mAh_averaged_SecondSlave.dtsi"
+	};
+};
+
+&pmi8950_charger {
+	qcom,thermal-mitigation = <3000 2500 2000 2000 2000 2000 2000>;
+};
+
+&pmi8950_fg {
+	qcom,thermal-coefficients = [DA 86 F0 50 08 3C];
+	qcom,cold-bat-decidegc = <(-20)>;
+	qcom,cool-bat-decidegc = <150>;
+	qcom,warm-bat-decidegc = <450>;
+	qcom,hot-bat-decidegc = <520>;
+	qcom,cold-hot-jeita-hysteresis = <15 45>;
+
+};
+
+&sdhc_2 {
+	cd-gpios = <&tlmm 133 0x0>;
+};
+
+&i2c_5 { /* BLSP2 QUP1 (NFC) */
+	fusb30x@22 {						// I2C Slave Address - Always @22
+		compatible = "fairchild,fusb302";		// String must match driver's .compatible string exactly
+		reg = <0x22>;					// I2C Slave address
+		status = "okay";				// The device is enabled, comment out or delete to disable
+		//status = "disabled";				// Uncomment to disable the device from being loaded at boot
+		//fairchild,vbus5v	= <&msm_gpio 39 0>;	// VBus 5V GPIO pin - <&gpio_bus pin# 0>. Do not change "fairchild,vbus5v"
+		//fairchild,vbusOther	= <&msm_gpio 40 0>;	// VBus Other GPIO pin - optional, but if used, name "fairchild,vbusOther" must not change.
+		//fairchild,int_n	= <&pm8994_gpios 4 0>;	// INT_N GPIO pin - <&gpio_bus pin# 0>. Do not change "fairchild,int_n"
+		vdd-supply		= <&pm8953_l15>;
+		qcom,vdd-always-on;
+		//qcom,vdd-voltage-level = <3300000 3300000>;
+		//qcom,vdd-current-level = <15000 50000>;
+		vcc_i2c-supply		= <&pm8953_l6>;
+		//qcom,vcc_i2c-voltage-level = <1800000 1800000>;
+		//qcom,vcc_i2c-current-level = <200 22000>;
+		interrupt-parent	= <&tlmm>;
+		interrupts		= <46 0x00>;
+		fairchild,int_n		= <&tlmm 46 0>;		// INT_N GPIO pin - <&gpio_bus pin# 0>. Do not change "fairchild,int_n"
+                qcom,usb_id		= <&pm8953_gpios 8 0x00>;
+		qcom,vconn_en		= <&tlmm 87 0>;
+	};
+};
+
+&i2c_2  {
+	couloMeter@55 {
+	              compatible = "qcom,couloMeter";
+		      reg = <0x55>;
+		};
+};
+
+
+
+&pm8953_gpios {
+	/* GPIO 8 (USB_ID) */
+	gpio@c700 {
+		qcom,mode = <1>;		// QPNP_PIN_MODE_DIG_OUT = 1
+		qcom,output-type = <0>;		// QPNP_PIN_OUT_BUF_CMOS = 0
+		qcom,pull = <0>;		// QPNP_PIN_PULL_UP_30 = 0 (uA)
+		qcom,vin-sel = <2>;		// QPNP_PIN_VIN2 = 2
+		qcom,out-strength = <3>;	// QPNP_PIN_OUT_STRENGTH_IGH  = 3
+		qcom,src-sel = <0>;		// QPNP_PIN_SEL_FUNC_CONSTANT = 0
+		qcom,master-en = <1>;		// 1 – Enables features within the pin block based on configuration
+		status = "okay";
+	};
+};
+
+&wcd9xxx_intc {
+	status = "disabled";
+};
+
+&wcd_rst_gpio {
+	status = "disabled";
+};
+

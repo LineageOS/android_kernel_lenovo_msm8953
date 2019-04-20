@@ -1,0 +1,12 @@
+#include "tbx704-msm8953-pinctrl.dtsi"
+#include "tbx704-msm8953.dtsi"
+#include "tbx704-msm8953-regulator.dtsi"
+#include "tbx704-msm8953-audio.dtsi"
+#include "tbx704-msm8953-qrd.dtsi"
+#include "tbx704-msm8953-camera-sensor-qrd.dtsi"
+#include "tbx704-msm-pmi8950.dtsi"
+#include "tbx704-msm-pm8953.dtsi"
+#include "tbx704-msm8953-mdss.dtsi"
+#include "tbx704-msm8953-mdss-panels.dtsi"
+#include "tbx704-msm8953-qrd-sku3.dtsi"
+

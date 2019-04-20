@@ -1,0 +1,126 @@
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&spmi_bus {
+	qcom,pmi8950@2 {
+		pmi8950_vadc: vadc@3100 {
+			chan@10 {
+				label = "pcba_vadc";
+				reg = <0x10>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>; //1:1
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <1>;
+				qcom,fast-avg-setup = <2>;
+			};
+		};
+
+		pmi8950_mpps: mpps {
+			mpp@a000 {
+				qcom,mode = <4>; /* AIN input */
+				qcom,invert = <1>; /* Enable MPP */
+				com,ain-route = <0>; /* AMUX 5 */
+				qcom,master-en = <1>;
+				qcom,src-sel = <0>; /* Function constant */
+				status = "okay";
+			};
+
+		};
+
+		pmi8950_charger: qcom,qpnp-smbcharger {
+			qcom,iterm-ma = <256>;
+			qcom,float-voltage-mv = <4400>;
+			qcom,resume-delta-mv = <100>;
+			/delete-property/ qcom,parallel-usb-min-current-ma;
+			/delete-property/ qcom,parallel-usb-9v-min-current-ma;
+			/delete-property/ qcom,parallel-allowed-lowering-ma;
+			qcom,fastchg-current-comp = <700>;
+			qcom,float-voltage-comp =<9>;
+
+		};
+
+		pmi8950_fg: qcom,fg {
+			qcom,resume-soc = <99>;
+			qcom,fg-iterm-ma = <270>;
+			qcom,fg-chg-iterm-ma = <256>;
+			qcom,fg-cutoff-voltage-mv = <3380>;
+			qcom,esr-pulse-tuning-en;
+		};
+
+
+		qcom,leds@a100 {
+			qcom,led_green {
+				qcom,id = <6>;
+				label = "mpp";
+				linux,name = "green";
+				qcom,max-current = <20>;
+				qcom,default-state = "off";
+				qcom,mode-ctrl = <0x60>;
+				qcom,mode = "pwm";
+				qcom,current-setting = <15>;
+				pwms = <&pmi8950_pwm 0 0>;
+				qcom,source-sel = <0xA>;
+				qcom,pwm-us = <1000>;
+				qcom,use-blink;
+				qcom,start-idx = <1>;
+				qcom,duty-pcts = [00 19 32 4B 64 64 4B 32 19 00];
+			};
+		};
+		qcom,leds@a300 {
+                        compatible = "qcom,leds-qpnp";
+                        reg = <0xa300 0x100>;
+                        label = "mpp";
+                        qcom,led_blue {
+                                qcom,id = <6>;
+                                label = "mpp";
+                                linux,name = "blue";
+                                qcom,max-current = <20>;
+                                qcom,default-state = "off";
+                                qcom,mode-ctrl = <0x60>;
+                                qcom,mode = "pwm";
+                                qcom,current-setting = <15>;
+				pwms = <&pmi8950_pwm 0 0>;
+				qcom,source-sel = <0xA>;
+				qcom,pwm-us = <1000>;
+				qcom,use-blink;
+				qcom,start-idx = <1>;
+				qcom,duty-pcts = [00 19 32 4B 64 64 4B 32 19 00];
+                        };
+                };
+	};
+
+	qcom,pmi8950@3 {
+		pmi8950_pwm: pwm@b000 {
+			status = "okay";
+			qcom,mode-select = <0>;
+			qcom,period = <2300000>;
+			qcom,dtest-line = <2>;
+			qcom,dtest-output = <2>;
+			qcom,pwm {
+				qcom,duty = <800000>;
+				label = "pwm";
+			};
+		};
+
+		wled: qcom,leds@d800 {
+			qcom,fs-curr-ua = <22500>;
+			qcom,led-strings-list = [00 01 02 03];
+			/delete-property/ qcom,en-ext-pfet-sc-pro;
+		};
+
+
+		pmi_haptic: qcom,haptic@c000 {
+			qcom,vmax-mv = <3200>;
+		};
+	};
+};
