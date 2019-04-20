@@ -646,6 +646,13 @@ config MSM_BCL_PERIPHERAL_CTL
 	  provides routines to configure and monitor the BCL
 	  PMIC peripheral.
 
+config COULO_METER
+	tristate "COULO_METER Battery"
+	depends on I2C
+	help
+	  Say Y to include support for Battery COULO_METER.
+	  COULO_METER is a meter of battery.
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY
