@@ -228,6 +228,9 @@ struct msm8916_asoc_mach_data {
 	int ext_pa;
 	int us_euro_gpio;
 	int spk_ext_pa_gpio;
+#ifdef CONFIG_MACH_LENOVO_TBX704
+	int spk_ext_pa1_gpio;
+#endif
 #if defined(CONFIG_SPEAKER_EXT_PA)
 	int spk_ext_pa_l_gpio;
     int spk_ext_pa_r_gpio;

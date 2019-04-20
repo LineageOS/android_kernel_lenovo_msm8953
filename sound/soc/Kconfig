@@ -31,19 +31,16 @@ config SND_SOC_GENERIC_DMAENGINE_PCM
 	select SND_DMAENGINE_PCM
 
 config RECEIVER_EXT_PA
-    default y
     bool "Receiver external PA"
     help
         Support for external PA.
 
 config SPEAKER_EXT_PA
-    default y
     bool "Speaker external PA"
     help
         Support for external PA.
 
 config SPEAKER_EXT_PA_AW8738
-    default y
     bool "Speaker external PA AW8738"
     help
         Support for the AW8738.
