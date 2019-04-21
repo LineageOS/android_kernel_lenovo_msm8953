@@ -15,6 +15,7 @@
 
 	qcom,pm8953@0 {
 		qcom,power-on@800 {
+			/delete-property/ qcom,store-hard-reset-reason;
 			qcom,pon_1 {
 				qcom,s1-timer = <6720>;
 				qcom,s2-timer = <2000>;
