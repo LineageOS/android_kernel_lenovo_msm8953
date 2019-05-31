@@ -21,7 +21,7 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
-#ifdef CONFIG_MACH_LENOVO_TB8703
+#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704)
 struct vendor_eeprom s_vendor_eeprom[CAMERA_VENDOR_EEPROM_COUNT_MAX];
 #endif
 
@@ -661,7 +661,7 @@ static int msm_eeprom_config(struct msm_eeprom_ctrl_t *e_ctrl,
 		if (e_ctrl->userspace_probe == 0) {
 			pr_err("%s:%d Eeprom already probed at kernel boot",
 				__func__, __LINE__);
-#ifdef CONFIG_MACH_LENOVO_TB8703
+#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704)
 			rc = 0;
 #else
 			rc = -EINVAL;
@@ -704,7 +704,7 @@ static int msm_eeprom_get_subdev_id(struct msm_eeprom_ctrl_t *e_ctrl,
 }
 
 
-#ifdef CONFIG_MACH_LENOVO_TB8703
+#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704)
 //lct.huk added for eeprom check id begin 20160523
 
 
@@ -761,11 +761,11 @@ static camera_vendor_module_id ov5695_get_otp_vendor_module_id(struct msm_eeprom
 static uint8_t get_otp_vendor_module_id(struct msm_eeprom_ctrl_t *e_ctrl, const char *eeprom_name)
 {
 	camera_vendor_module_id module_id=MID_NULL;
-	if((strcmp(eeprom_name, "qtech_f5695ak") == 0)){
-	CDBG("%s eeprom_name=%s, module_id=%d\n",__func__,eeprom_name,module_id);
+	if((strcmp(eeprom_name, "qtech_f5695ak") == 0) || (strcmp(eeprom_name, "qtech2_ov5695") == 0)) {
+		CDBG("%s eeprom_name=%s, module_id=%d\n",__func__,eeprom_name,module_id);
 		module_id = ov5695_get_otp_vendor_module_id(e_ctrl);
 	}
-	else if(strcmp(eeprom_name,"qtech_imx219_fx219aq") == 0){
+	else if((strcmp(eeprom_name,"qtech_imx219_fx219aq") == 0) || (strcmp(eeprom_name,"qtech_imx219") == 0)){
 		module_id = 0x06;
 	}
 	CDBG("%s eeprom_name=%s, module_id=%d\n",__func__,eeprom_name,module_id);
@@ -1600,7 +1600,7 @@ static int msm_eeprom_config32(struct msm_eeprom_ctrl_t *e_ctrl,
 		if (e_ctrl->userspace_probe == 0) {
 			pr_err("%s:%d Eeprom already probed at kernel boot",
 				__func__, __LINE__);
-#ifdef CONFIG_MACH_LENOVO_TB8703
+#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704)
 			rc = 0;
 #else
 			rc = -EINVAL;
@@ -1811,7 +1811,7 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 			CDBG("memory_data[%d] = 0x%X\n", j,
 				e_ctrl->cal_data.mapdata[j]);
 
-#ifdef CONFIG_MACH_LENOVO_TB8703
+#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704)
 		//lct.huk added for eeprom check id 20160523
 
 		if(eb_info->eeprom_name != NULL){
