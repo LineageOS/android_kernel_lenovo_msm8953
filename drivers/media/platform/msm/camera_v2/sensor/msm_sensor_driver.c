@@ -18,7 +18,7 @@
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
 
-#ifdef CONFIG_MACH_LENOVO_TB8703
+#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704)
 #include <soc/qcom/camera2.h>
 
 extern struct vendor_eeprom s_vendor_eeprom[CAMERA_VENDOR_EEPROM_COUNT_MAX];
@@ -92,7 +92,7 @@ static int32_t msm_sensor_driver_create_i2c_v4l_subdev
 	struct i2c_client *client = s_ctrl->sensor_i2c_client->client;
 
 	CDBG("%s %s I2c probe succeeded\n", __func__, client->name);
-#if !defined(CONFIG_MACH_LENOVO_TB8703)
+#if !defined(CONFIG_MACH_LENOVO_TB8703) && !defined(CONFIG_MACH_LENOVO_TBX704)
 	if (0 == s_ctrl->bypass_video_node_creation) {
 #endif
 		rc = camera_init_v4l2(&client->dev, &session_id);
@@ -100,7 +100,7 @@ static int32_t msm_sensor_driver_create_i2c_v4l_subdev
 			pr_err("failed: camera_init_i2c_v4l2 rc %d", rc);
 			return rc;
 		}
-#if !defined(CONFIG_MACH_LENOVO_TB8703)
+#if !defined(CONFIG_MACH_LENOVO_TB8703) && !defined(CONFIG_MACH_LENOVO_TBX704)
 	}
 #endif
 
@@ -140,7 +140,7 @@ static int32_t msm_sensor_driver_create_v4l_subdev
 	int32_t rc = 0;
 	uint32_t session_id = 0;
 
-#if !defined(CONFIG_MACH_LENOVO_TB8703)
+#if !defined(CONFIG_MACH_LENOVO_TB8703) && !defined(CONFIG_MACH_LENOVO_TBX704)
 	if (0 == s_ctrl->bypass_video_node_creation) {
 #endif
 		rc = camera_init_v4l2(&s_ctrl->pdev->dev, &session_id);
@@ -148,7 +148,7 @@ static int32_t msm_sensor_driver_create_v4l_subdev
 			pr_err("failed: camera_init_v4l2 rc %d", rc);
 			return rc;
 		}
-#if !defined(CONFIG_MACH_LENOVO_TB8703)
+#if !defined(CONFIG_MACH_LENOVO_TB8703) && !defined(CONFIG_MACH_LENOVO_TBX704)
 	}
 #endif
 
@@ -692,7 +692,7 @@ static void msm_sensor_fill_sensor_info(struct msm_sensor_ctrl_t *s_ctrl,
 	strlcpy(entity_name, s_ctrl->msm_sd.sd.entity.name, MAX_SENSOR_NAME);
 }
 
-#ifdef CONFIG_MACH_LENOVO_TB8703
+#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704)
 /* add sensor info for factory mode
    begin
 */
@@ -768,7 +768,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 	struct msm_camera_cci_client        *cci_client = NULL;
 	struct msm_camera_sensor_slave_info *slave_info = NULL;
 	struct msm_camera_slave_info        *camera_info = NULL;
-#ifdef CONFIG_MACH_LENOVO_TB8703
+#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704)
 	int32_t i = 0;
 #endif
 
@@ -844,7 +844,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 			slave_info32->sensor_init_params;
 		slave_info->output_format =
 			slave_info32->output_format;
-#if !defined(CONFIG_MACH_LENOVO_TB8703)
+#if !defined(CONFIG_MACH_LENOVO_TB8703) && !defined(CONFIG_MACH_LENOVO_TBX704)
 		slave_info->bypass_video_node_creation =
 			!!slave_info32->bypass_video_node_creation;
 #endif
@@ -878,16 +878,19 @@ int32_t msm_sensor_driver_probe(void *setting,
 	}
 	pr_err("enter msm_sensor_driver_probe before lenovo");
 
-#ifdef CONFIG_MACH_LENOVO_TB8703
+#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704)
 	//lct.huk added for eeprom match id 20160523
 	if(s_vendor_eeprom[i].eeprom_name != NULL){
 		for(i=0; i<CAMERA_VENDOR_EEPROM_COUNT_MAX; i++){
-			if(strcmp(slave_info->eeprom_name,s_vendor_eeprom[i].eeprom_name) == 0){
-			CDBG(" dtsi eeprom_name[%d]=%s, module_id=%d\n",i,s_vendor_eeprom[i].eeprom_name, s_vendor_eeprom[i].module_id);//s_vendor_eeprom is from kernel camera dtsi
-				if(((strcmp(slave_info->sensor_name,"ov5695_f5695ak") == 0) && (s_vendor_eeprom[i].module_id == MID_QTECH))
+			if (strcmp(slave_info->eeprom_name,s_vendor_eeprom[i].eeprom_name) == 0) {
+			CDBG("dtsi eeprom_name[%d]=%s, module_id=%d\n", i, s_vendor_eeprom[i].eeprom_name, s_vendor_eeprom[i].module_id); //s_vendor_eeprom is from kernel camera dtsi
+			CDBG("sensor_name=%s", slave_info->sensor_name);
+				if (((strcmp(slave_info->sensor_name,"ov5695_f5695ak") == 0) && (s_vendor_eeprom[i].module_id == MID_QTECH))
 					|| ((strcmp(slave_info->sensor_name,"ov5695_ccbfl05006") == 0) && (s_vendor_eeprom[i].module_id == MID_LITEARRAY))
+					|| ((strcmp(slave_info->sensor_name,"ov5695_qtech2") == 0) && (s_vendor_eeprom[i].module_id == MID_QTECH))
 					|| ((strcmp(slave_info->sensor_name,"imx219_fx219aq") == 0) && (s_vendor_eeprom[i].module_id == MID_QTECH))
-					){
+					|| ((strcmp(slave_info->sensor_name,"imx219_ofilm") == 0) && (s_vendor_eeprom[i].module_id == MID_QTECH))
+				) {
 					CDBG("module found!probe continue!\n");
 					break;
 				}
@@ -918,7 +921,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 		slave_info->sensor_init_params.position);
 	CDBG("mount %d",
 		slave_info->sensor_init_params.sensor_mount_angle);
-#if !defined(CONFIG_MACH_LENOVO_TB8703)
+#if !defined(CONFIG_MACH_LENOVO_TB8703) && !defined(CONFIG_MACH_LENOVO_TBX704)
 	CDBG("bypass video node creation %d",
 		slave_info->bypass_video_node_creation);
 #endif
@@ -1088,7 +1091,7 @@ CSID_TG:
 
 	pr_err("%s probe succeeded", slave_info->sensor_name);
 
-#if !defined(CONFIG_MACH_LENOVO_TB8703)
+#if !defined(CONFIG_MACH_LENOVO_TB8703) && !defined(CONFIG_MACH_LENOVO_TBX704)
 	s_ctrl->bypass_video_node_creation =
 		slave_info->bypass_video_node_creation;
 #endif
@@ -1145,7 +1148,7 @@ CSID_TG:
 
 	msm_sensor_fill_sensor_info(s_ctrl, probed_info, entity_name);
 
-#ifdef CONFIG_MACH_LENOVO_TB8703
+#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704)
 	msm_sensor_init_device_name();
 	msm_sensor_set_module_info(s_ctrl);
 #endif
