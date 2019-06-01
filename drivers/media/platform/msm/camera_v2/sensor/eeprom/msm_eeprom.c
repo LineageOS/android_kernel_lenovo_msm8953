@@ -761,14 +761,19 @@ static camera_vendor_module_id ov5695_get_otp_vendor_module_id(struct msm_eeprom
 static uint8_t get_otp_vendor_module_id(struct msm_eeprom_ctrl_t *e_ctrl, const char *eeprom_name)
 {
 	camera_vendor_module_id module_id=MID_NULL;
-	if((strcmp(eeprom_name, "qtech_f5695ak") == 0) || (strcmp(eeprom_name, "qtech2_ov5695") == 0)) {
+	if((strcmp(eeprom_name, "qtech_f5695ak") == 0) 
+		|| (strcmp(eeprom_name, "qtech2_ov5695") == 0)
+		|| (strcmp(eeprom_name, "ofilm_ov8856") == 0)
+	) {
 		CDBG("%s eeprom_name=%s, module_id=%d\n",__func__,eeprom_name,module_id);
 		module_id = ov5695_get_otp_vendor_module_id(e_ctrl);
 	}
-	else if((strcmp(eeprom_name,"qtech_imx219_fx219aq") == 0) || (strcmp(eeprom_name,"qtech_imx219") == 0)){
+	else if((strcmp(eeprom_name,"qtech_imx219_fx219aq") == 0) 
+		|| (strcmp(eeprom_name,"qtech_imx219") == 0)
+	) {
 		module_id = 0x06;
 	}
-	CDBG("%s eeprom_name=%s, module_id=%d\n",__func__,eeprom_name,module_id);
+	pr_info("%s eeprom_name=%s, module_id=%d\n",__func__,eeprom_name,module_id);
 	if(module_id>=MID_MAX) module_id = MID_NULL;
 
 	return ((uint8_t)module_id);
