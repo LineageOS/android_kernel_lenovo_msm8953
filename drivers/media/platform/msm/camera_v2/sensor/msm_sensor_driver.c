@@ -880,29 +880,34 @@ int32_t msm_sensor_driver_probe(void *setting,
 
 #if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704)
 	//lct.huk added for eeprom match id 20160523
-	if(s_vendor_eeprom[i].eeprom_name != NULL){
-		for(i=0; i<CAMERA_VENDOR_EEPROM_COUNT_MAX; i++){
+	if (s_vendor_eeprom[i].eeprom_name != NULL){
+		for (i=0; i<CAMERA_VENDOR_EEPROM_COUNT_MAX; i++){
 			if (strcmp(slave_info->eeprom_name,s_vendor_eeprom[i].eeprom_name) == 0) {
-			CDBG("dtsi eeprom_name[%d]=%s, module_id=%d\n", i, s_vendor_eeprom[i].eeprom_name, s_vendor_eeprom[i].module_id); //s_vendor_eeprom is from kernel camera dtsi
-			CDBG("sensor_name=%s", slave_info->sensor_name);
-				if (((strcmp(slave_info->sensor_name,"ov5695_f5695ak") == 0) && (s_vendor_eeprom[i].module_id == MID_QTECH))
-					|| ((strcmp(slave_info->sensor_name,"ov5695_ccbfl05006") == 0) && (s_vendor_eeprom[i].module_id == MID_LITEARRAY))
-					|| ((strcmp(slave_info->sensor_name,"ov5695_qtech2") == 0) && (s_vendor_eeprom[i].module_id == MID_QTECH))
+				pr_info("dtsi eeprom_name[%d]=%s, module_id=%d\n", i, s_vendor_eeprom[i].eeprom_name, s_vendor_eeprom[i].module_id); //s_vendor_eeprom is from kernel camera dtsi
+				pr_info("sensor_name=%s", slave_info->sensor_name);
+				if (((strcmp(slave_info->sensor_name,"imx219") == 0) && (s_vendor_eeprom[i].module_id == MID_QTECH))
 					|| ((strcmp(slave_info->sensor_name,"imx219_fx219aq") == 0) && (s_vendor_eeprom[i].module_id == MID_QTECH))
 					|| ((strcmp(slave_info->sensor_name,"imx219_ofilm") == 0) && (s_vendor_eeprom[i].module_id == MID_QTECH))
+					|| ((strcmp(slave_info->sensor_name,"ov5695_f5695ak") == 0) && (s_vendor_eeprom[i].module_id == MID_QTECH))
+					|| ((strcmp(slave_info->sensor_name,"ov5695_ccbfl05006") == 0) && (s_vendor_eeprom[i].module_id == MID_LITEARRAY))
+					|| ((strcmp(slave_info->sensor_name,"ov5695_qtech2") == 0) && (s_vendor_eeprom[i].module_id == MID_QTECH))
+					|| ((strcmp(slave_info->sensor_name,"ov8856") == 0) && (s_vendor_eeprom[i].module_id == MID_OFILM))
 				) {
-					CDBG("module found!probe continue!\n");
+					pr_info("module found! probe continue!\n");
+					break;
+				} else if ((strcmp(slave_info->sensor_name,"ov5695_avc") == 0)) {
+					s_vendor_eeprom[i].module_id = MID_AVC;
+					pr_info("AVC module found! probe continue!\n");
 					break;
 				}
-		      }
 			}
-		if(i >= CAMERA_VENDOR_EEPROM_COUNT_MAX){
-			pr_err("module not found!probe break!\n");
+		}
+		if (i >= CAMERA_VENDOR_EEPROM_COUNT_MAX) {
+			pr_err("module not found! probe break!\n");
 			rc = -EFAULT;
 			goto free_slave_info;
 		}
 }
-
 #endif
 	pr_err("enter msm_sensor_driver_probe after lenovo");
 
