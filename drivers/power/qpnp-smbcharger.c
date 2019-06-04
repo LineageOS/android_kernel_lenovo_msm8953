@@ -277,7 +277,6 @@ struct smbchg_chip {
 	struct delayed_work		vfloat_adjust_work;
 	struct delayed_work		hvdcp_det_work;
 	#ifdef CONFIG_MACH_LENOVO_TBX704
-	struct delayed_work    src_det_work;  //cherry add
 	ktime_t                         last_hvdcp9v;
 	#endif
 	spinlock_t			sec_access_lock;
@@ -289,10 +288,6 @@ struct smbchg_chip {
 	int				aicl_irq_count;
 	struct mutex			usb_status_lock;
 	bool				hvdcp_3_det_ignore_uv;
-#ifdef CONFIG_MACH_LENOVO_TBX704
-	bool            hvdcp_det_sure;  //cherry add
-	bool            hvdcp_det_start; //cherry add
-#endif
 	struct completion		src_det_lowered;
 	struct completion		src_det_raised;
 	struct completion		usbin_uv_lowered;
@@ -5052,21 +5047,6 @@ static int force_9v_hvdcp(struct smbchg_chip *chip)
 
 	return rc;
 }
-#ifdef CONFIG_MACH_LENOVO_TBX704
-void update_usb_status(struct smbchg_chip *chip, bool usb_present, bool force);
-
-static void smbchg_src_detect_work(struct work_struct *work)
-{
-	struct smbchg_chip *chip = container_of(work,
-					struct smbchg_chip,
-					src_det_work.work);
-	bool usb_present;
-	usb_present = is_usb_present(chip);
-	pr_err("csz usb_present = %d\n",usb_present );
-	chip->hvdcp_det_sure =true;
-	 update_usb_status(chip, usb_present, true);
-}
-#endif
 
 static void smbchg_hvdcp_det_work(struct work_struct *work)
 {
@@ -6157,7 +6137,7 @@ static int smbchg_unprepare_for_pulsing_lite(struct smbchg_chip *chip)
 		return rc;
 	}
 #ifdef CONFIG_MACH_LENOVO_TBX704
-	chip->last_hvdcp9v =ktime_get_boottime();
+	chip->last_hvdcp9v = ktime_get_boottime();
 #endif
 	pr_smb(PR_MISC, "Retracting HVDCP vote for ICL\n");
 	rc = vote(chip->usb_icl_votable, HVDCP_ICL_VOTER, false, 0);
@@ -6280,15 +6260,6 @@ static int smbchg_dp_dm(struct smbchg_chip *chip, int val)
 	case POWER_SUPPLY_DP_DM_HVDCP3_SUPPORTED:
 		chip->hvdcp3_supported = true;
 		pr_smb(PR_MISC, "HVDCP3 supported\n");
-#ifdef CONFIG_MACH_LENOVO_TBX704
-                pr_err("csz HVDCP3 supported");
-		while(!chip->hvdcp_det_start)
-			msleep(100);
-		cancel_delayed_work_sync(&chip->src_det_work);
-		//smbchg_stay_awake(chip, PM_DETECT_HVDCP);
-		schedule_delayed_work(&chip->src_det_work,
-					  msecs_to_jiffies(2500));
-#endif
 		break;
 	case POWER_SUPPLY_DP_DM_ICL_DOWN:
 		chip->usb_icl_delta -= 100;
@@ -7409,17 +7380,15 @@ static irqreturn_t src_detect_handler(int irq, void *_chip)
 #ifdef CONFIG_MACH_LENOVO_TBX704
      pr_smb(PR_STATUS,"chip->last_hvdcp9v=%lld, now_time is %lld", chip->last_hvdcp9v.tv64, now_time.tv64);
 
-	if(  ktime_to_ms(ktime_sub( now_time, chip->last_hvdcp9v)) <1500 )
-	chip->hvdcp_not_supported = true;
-	else
-	chip->hvdcp_not_supported = false;
+	if (ktime_to_ms(ktime_sub( now_time, chip->last_hvdcp9v)) < 1500) {
+		chip->hvdcp_not_supported = true;
+	} else {
+		chip->hvdcp_not_supported = false;
+	}
 #endif
-	if (chip->hvdcp_3_det_ignore_uv)
+	if (chip->hvdcp_3_det_ignore_uv) {
 		goto out;
-#ifdef CONFIG_MACH_LENOVO_TBX704
-        if(!chip->hvdcp_det_sure)
-			goto out;
-#endif
+	}
 	/*
 	 * When VBAT is above the AICL threshold (4.25V) - 180mV (4.07V),
 	 * an input collapse due to AICL will actually cause an USBIN_UV
@@ -7616,30 +7585,28 @@ static int determine_initial_status(struct smbchg_chip *chip)
 		power_supply_set_dp_dm(chip->usb_psy,
 				POWER_SUPPLY_DP_DM_DPF_DMF);
 #ifdef CONFIG_MACH_LENOVO_TBX704
-               /*cherry add start*/
+		/*cherry add start*/
 		read_usb_type(chip, &usb_type_name, &usb_supply_type);
-		   if( (usb_supply_type == POWER_SUPPLY_TYPE_USB)|| (strcmp(usb_type_name,"DCP") != 0) )
-			{
-						 pr_err("csz, sbl may fail for usb_supply_type");
-				chip->hvdcp_3_det_ignore_uv = true;
-			   rc = rerun_apsd(chip);
-			   if (rc)
-				   pr_err("csz APSD rerun failed rc=%d\n", rc);
-			   chip->hvdcp_3_det_ignore_uv = false;
-			   read_usb_type(chip, &usb_type_name, &usb_supply_type);
-			   pr_err("csz, rerun_apsd is %d", usb_supply_type);
+		if( (usb_supply_type == POWER_SUPPLY_TYPE_USB)|| (strcmp(usb_type_name,"DCP") != 0) )
+		{
+			pr_err("csz, sbl may fail for usb_supply_type");
+			chip->hvdcp_3_det_ignore_uv = true;
+			rc = rerun_apsd(chip);
+			if (rc) {
+				pr_err("csz APSD rerun failed rc=%d\n", rc);
+				chip->hvdcp_3_det_ignore_uv = false;
+				read_usb_type(chip, &usb_type_name, &usb_supply_type);
+				pr_err("csz, rerun_apsd is %d", usb_supply_type);
 			}
-		 power_supply_set_dp_dm(chip->usb_psy,
-				POWER_SUPPLY_DP_DM_DPF_DMF);
-             /*cherry add end*/
+		}
+		power_supply_set_dp_dm(chip->usb_psy,
+			POWER_SUPPLY_DP_DM_DPF_DMF);
+		/*cherry add end*/
 #endif
 		handle_usb_insertion(chip);
 	} else {
 		handle_usb_removal(chip);
 	}
-#ifdef CONFIG_MACH_LENOVO_TBX704
-	chip->hvdcp_det_start = true;
-#endif
 	return 0;
 }
 
@@ -9173,11 +9140,6 @@ static int smbchg_probe(struct spmi_device *spmi)
 			smbchg_parallel_usb_en_work);
 	INIT_DELAYED_WORK(&chip->vfloat_adjust_work, smbchg_vfloat_adjust_work);
 	INIT_DELAYED_WORK(&chip->hvdcp_det_work, smbchg_hvdcp_det_work);
-#ifdef CONFIG_MACH_LENOVO_TBX704
-	INIT_DELAYED_WORK(&chip->src_det_work, smbchg_src_detect_work );
-	chip->hvdcp_det_sure=false;
-	chip->hvdcp_det_start=false;
-#endif
 	init_completion(&chip->src_det_lowered);
 	init_completion(&chip->src_det_raised);
 	init_completion(&chip->usbin_uv_lowered);
