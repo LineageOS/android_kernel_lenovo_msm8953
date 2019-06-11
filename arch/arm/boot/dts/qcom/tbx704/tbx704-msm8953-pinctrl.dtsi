@@ -13,6 +13,16 @@
 
 &soc {
 	tlmm: pinctrl@1000000 {
+		hall_int_pin {
+			pins = "gpio44";
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "hall_irq";
+			hall_sensor_int_default: hall_sensor_int_default {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+		};
 		/*sensors */
 		cam_sensor_mclk0_default: cam_sensor_mclk0_default {
 			config {
