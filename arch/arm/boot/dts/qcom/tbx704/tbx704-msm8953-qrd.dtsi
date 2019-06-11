@@ -37,6 +37,19 @@
 		pinctrl-3 = <&goodix_irq_active>;
 	};
 
+	hall_switch {
+		compatible = "hall-switch";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hall_sensor_int_default>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <13 0x2008>;
+		vddio-supply = <&pm8953_l6>;
+		linux,gpio-int = <&tlmm 13 0x1>;
+		linux,wakeup;
+		linux,min-uv = <1650000>;
+		linux,max-uv = <3300000>;
+	};
+
 	i2c@78b7000 { /* BLSP1 QUP3 */
 		/delete-node/ synaptics@4b;
 		goodix_ts@5d {
