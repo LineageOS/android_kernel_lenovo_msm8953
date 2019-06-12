@@ -11,6 +11,93 @@
  * GNU General Public License for more details.
  */
 
+&soc {
+        hall_switch {
+               compatible = "hall-switch,och175";
+               pinctrl-names = "hall_active","hall_suspend";
+               pinctrl-0 = <&hall_int_active>;
+               pinctrl-1 = <&hall_int_suspend>;
+               vdd-io-supply = <&pm8953_l5>;
+               interrupt-names = "hall_irq";
+               hall,irq-gpio = <&tlmm 44 0x2008>;
+        };
+        gpio_keys {
+                /delete-node/ camera_focus;
+                /delete-node/ camera_snapshot;
+        };
+
+        /delete-node/ hbtp;
+};
+
+&pmi_haptic{
+        status = "okay";
+        qcom,actuator-type = "erm";
+};
+
+
+&mdss_dsi0 {
+        /delete-property/ lab-supply;
+        /delete-property/ ibb-supply;
+        /delete-property/ vdd-supply;
+        qcom,dsi-pref-prim-pan = <&dsi_auont51021_1200p_vid>;
+        /delete-property/ qcom,platform-reset-gpio;
+        qcom,platform-bklight-en-gpio = <&tlmm 46 0>;
+};
+
+&spmi_bus {
+        qcom,pmi8950@2 {
+                qcom,leds@a100 {
+                        status = "okay";
+                        qcom,led_mpp_2 {
+                                label = "mpp";
+                                linux,name = "green";
+                                linux,default-trigger = "none";
+                                qcom,default-state = "off";
+                                qcom,max-current = <40>;
+                                qcom,current-setting = <5>;
+                                qcom,id = <6>;
+                                qcom,mode = "pwm"; //pwm mode 
+                                qcom,source-sel = <8>;//DTEST1 
+                                qcom,mode-ctrl = <0x60>; //current sink 
+                                qcom,pwm-channel = <0>; 
+                                qcom,pwm-us = <1000000>;//original period is 1 second 
+                                pwms = <&pmi8950_pwm 0 0>; 
+                                pwm-names="green"; // add this 
+                        };
+                };
+        };
+};
+
+/{
+        mtp_batterydata: qcom,battery-data {
+                /delete-node/ qcom,ascent-3450mah;
+                /delete-node/ qcom,itech-3000mah;
+                #include "batterydata-SCUD-4250mAh.dtsi"
+                #include "batterydata-SCUD2-4250mAh.dtsi"
+                #include "batterydata-ATL-4250mAh.dtsi"
+        };
+};
+
+&pmi8950_fg {
+        qcom,thermal-coefficients = [C5 86 BE 50 D1 37];
+        qcom,fg-therm-delay-us = <3000>;
+        qcom,cold-hot-jeita-hysteresis = <20 20>;
+        qcom,fg-vbat-estimate-diff-mv = <100>;
+};
+
+&pmi8950_charger {
+        qcom,charge-unknown-battery;
+        qcom,fastchg-current-comp = <1200>;
+        qcom,float-voltage-comp = <0>;
+        qcom,chg-led-sw-controls;
+        qcom,chg-led-support;
+        /delete-property/ qcom,force-aicl-rerun;
+        /delete-property/ qcom,aicl-rerun-period-s;
+        /delete-property/ qcom,external-typec;
+        /delete-property/ qcom,typec-psy-name;
+};
+
+
 &i2c_3 {
 	status = "ok";
 		himax-ts@48 {
@@ -51,26 +138,6 @@
 		interrupts = <48 0x2>;
 		azopteq,irq-gpio =<&tlmm 48 0x2>;
 	};
-};
-
-&ext_codec {
-	status = "disabled";
-};
-
-&wsa881x_i2c_e {
-	status = "disabled";
-};
-
-&wsa881x_i2c_44 {
-	status = "disabled";
-};
-
-&wsa881x_i2c_f {
-	status = "disabled";
-};
-
-&wsa881x_i2c_45 {
-	status = "disabled";
 };
 
 &soc {
