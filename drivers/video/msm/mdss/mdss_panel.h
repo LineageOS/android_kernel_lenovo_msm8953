@@ -58,16 +58,9 @@ enum acl_state {
 	ACL_STATE_NUM
 };
 
-enum seed_state {
-	SEED_OFF_STATE = 0,
-	SEED_ON_STATE,
-	SEED_STATE_NUM
-};
-
 enum panel_param_id {
 	PARAM_HBM_ID = 0,
 	PARAM_ACL_ID,
-	PARAM_SEED_ID,
 	PARAM_ID_NUM
 };
 
