@@ -174,7 +174,7 @@ static struct afe_clk_set mi2s_rx_clk = {
 static struct afe_clk_set wsa_ana_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
 	Q6AFE_LPASS_CLK_ID_MCLK_1,
-#ifdef CONFIG_MACH_LENOVO_KuNTAO
+#ifdef CONFIG_MACH_LENOVO_KUNTAO
 	Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
 #else
 	Q6AFE_LPASS_OSR_CLK_9_P600_MHZ,
@@ -613,10 +613,6 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
 				mi2s_rx_clk_v1.clk_val1 =
 						get_mi2s_clk_val(port_id);
-#ifdef CONFIG_MACH_LENOVO_KUNTAO
-				mi2s_rx_clk_v1.clk_val2 =
-						Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
-#endif
 				ret = afe_set_lpass_clock(port_id,
 							&mi2s_rx_clk_v1);
 			} else {
@@ -632,10 +628,6 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
 				mi2s_tx_clk_v1.clk_val1 =
 						get_mi2s_clk_val(port_id);
-#ifdef CONFIG_MACH_LENOVO_KUNTAO
-				mi2s_tx_clk_v1.clk_val2 =
-						Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
-#endif
 				ret = afe_set_lpass_clock(port_id,
 							&mi2s_tx_clk_v1);
 			} else {
@@ -658,10 +650,6 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
 				mi2s_rx_clk_v1.clk_val1 =
 						Q6AFE_LPASS_IBIT_CLK_DISABLE;
-#ifdef CONFIG_MACH_LENOVO_KUNTAO
-				mi2s_rx_clk_v1.clk_val2 =
-						Q6AFE_LPASS_OSR_CLK_DISABLE;
-#endif
 				ret = afe_set_lpass_clock(port_id,
 							&mi2s_rx_clk_v1);
 			} else {
@@ -675,10 +663,6 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
 				mi2s_tx_clk_v1.clk_val1 =
 						Q6AFE_LPASS_IBIT_CLK_DISABLE;
-#ifdef CONFIG_MACH_LENOVO_KUNTAO
-				mi2s_tx_clk_v1.clk_val2 =
-						Q6AFE_LPASS_OSR_CLK_DISABLE;
-#endif
 				ret = afe_set_lpass_clock(port_id,
 							&mi2s_tx_clk_v1);
 			} else {
