@@ -26,6 +26,7 @@
 
 #define DEBUG
 #include <linux/module.h>
+#include <linux/compat.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
 #include <linux/delay.h>
@@ -579,7 +580,7 @@ static long tas2555_file_unlocked_ioctl(struct file *file, unsigned int cmd, uns
 	switch (cmd) {
 
 
-		case  ENABLE_MI2S_CLK:
+		case  SMARTPA_SPK_ENABLE_MI2S_CLK:
 		{
 			if ((1 ==  arg))  {
 			msm8x16_quin_mi2s_clk_ctl(true);
@@ -660,12 +661,34 @@ static long tas2555_file_unlocked_ioctl(struct file *file, unsigned int cmd, uns
 	return ret;
 }
 
+#ifdef CONFIG_COMPAT
+static long  tas2555_file_compat_ioctl(struct file *file, unsigned int cmd,
+				unsigned long arg)
+{
+	switch (_IOC_NR(cmd)) {
+	case _IOC_NR(SMARTPA_SPK_ENABLE_MI2S_CLK):
+		/* Fix up pointer size (usually 4 -> 8 in 32-on-64-bit case */
+		if (_IOC_SIZE(cmd) == sizeof(compat_uptr_t)) {
+			cmd &= ~IOCSIZE_MASK;
+			cmd |= sizeof(void *) << IOCSIZE_SHIFT;
+		}
+		break;
+	}
+	return tas2555_file_unlocked_ioctl(file, cmd, arg);
+}
+#else
+#define perf_compat_ioctl NULL
+#endif
+
 static struct file_operations fops =
 {
 	.owner = THIS_MODULE,
 	.read = tas2555_file_read,
 	.write = tas2555_file_write,
 	.unlocked_ioctl = tas2555_file_unlocked_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = tas2555_file_compat_ioctl,
+#endif
 	.open = tas2555_file_open,
 	.release = tas2555_file_release,
 };
