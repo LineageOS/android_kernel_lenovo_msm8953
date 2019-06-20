@@ -579,7 +579,7 @@ static long tas2555_file_unlocked_ioctl(struct file *file, unsigned int cmd, uns
 	switch (cmd) {
 
 
-		case  ENABLE_MI2S_CLK:
+		case  SMARTPA_SPK_ENABLE_MI2S_CLK:
 		{
 			if ((1 ==  arg))  {
 			msm8x16_quin_mi2s_clk_ctl(true);

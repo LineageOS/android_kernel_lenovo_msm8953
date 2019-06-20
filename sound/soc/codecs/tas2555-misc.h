@@ -48,6 +48,7 @@ extern int msm8x16_quat_mi2s_clk_ctl(bool enable);
 #define	SMARTPA_SPK_SWITCH_CALIBRATION		_IOWR(TAS2555_MAGIC_NUMBER, 6, unsigned long)
 #define	SMARTPA_SPK_SET_SAMPLERATE			_IOWR(TAS2555_MAGIC_NUMBER, 7, unsigned long)
 #define	SMARTPA_SPK_SET_BITRATE				_IOWR(TAS2555_MAGIC_NUMBER, 8, unsigned long)
+#define	SMARTPA_SPK_ENABLE_MI2S_CLK			_IOWR(TAS2555_MAGIC_NUMBER, 9, unsigned long)
 
 extern int tas2555_register_misc(struct tas2555_priv *pTAS2555);
 extern int tas2555_deregister_misc(struct tas2555_priv *pTAS2555);
