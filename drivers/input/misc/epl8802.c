@@ -15,9 +15,6 @@
 #include <linux/hrtimer.h>
 #include <linux/timer.h>
 #include <linux/delay.h>
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-#include <linux/earlysuspend.h>
-#endif
 #include <linux/i2c.h>
 #include <linux/input.h>
 #include <linux/interrupt.h>
@@ -177,9 +174,6 @@ struct epl_sensor_priv {
 	struct input_dev *ps_input_dev;
 	struct delayed_work eint_work;
 	struct delayed_work polling_work;
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-	struct early_suspend early_suspend;
-#endif
 	int intr_pin;
 	int (*power)(int on);
 	int ps_opened;
@@ -3693,7 +3687,6 @@ static int epl_sensor_suspend(struct device *dev)
 		return -EINVAL;
 	}
 
-#if !defined(CONFIG_HAS_EARLYSUSPEND)
 	epld->als_suspend = 1;
 	LOG_DBG("[%s]: enable_pflag=%d, enable_lflag=%d \r\n", __func__,
 		epld->enable_pflag, epld->enable_lflag);
@@ -3721,51 +3714,9 @@ static int epl_sensor_suspend(struct device *dev)
 		if (epld->enable_lflag == 1)
 			epl_sensor_update_mode(epld->client);
 	}
-#endif /*CONFIG_HAS_EARLYSUSPEND*/
+
 	return 0;
 }
-
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-static void epl_sensor_early_suspend(struct early_suspend *h)
-{
-	struct epl_sensor_priv *epld = epl_sensor_obj;
-	LOG_FUN();
-
-	if (!epld) {
-		LOG_ERR("null pointer!!\n");
-		return;
-	}
-
-	epld->als_suspend = 1;
-
-	LOG_DBG("[%s]: enable_pflag=%d, enable_lflag=%d \r\n", __func__,
-		epld->enable_pflag, epld->enable_lflag);
-
-	if (epld->enable_pflag == 0) {
-		if (epld->enable_lflag == 1 &&
-		    epl_sensor.als.polling_mode == 0) {
-			LOG_INFO(
-				"[%s]: check ALS interrupt_flag............ \r\n",
-				__func__);
-			epl_sensor_read_als(epld->client);
-			if (epl_sensor.als.interrupt_flag == EPL_INT_TRIGGER) {
-				LOG_INFO(
-					"[%s]: epl_sensor.als.interrupt_flag = %d \r\n",
-					__func__,
-					epl_sensor.als.interrupt_flag);
-				//ALS unlock interrupt pin and restart chip
-				epl_sensor_I2C_Write(epld->client, 0x12,
-						     EPL_CMP_RESET |
-							     EPL_UN_LOCK);
-			}
-		}
-		//atomic_set(&obj->ps_suspend, 1);
-		LOG_INFO("[%s]: ps disable \r\n", __func__);
-		if (epld->enable_lflag == 1)
-			epl_sensor_update_mode(epld->client);
-	}
-}
-#endif
 
 static int epl_sensor_resume(struct device *dev)
 {
@@ -3776,7 +3727,7 @@ static int epl_sensor_resume(struct device *dev)
 		LOG_ERR("null pointer!!\n");
 		return -EINVAL;
 	}
-#if !defined(CONFIG_HAS_EARLYSUSPEND)
+
 	epld->als_suspend = 0;
 	epld->ps_suspend = 0;
 
@@ -3793,42 +3744,10 @@ static int epl_sensor_resume(struct device *dev)
 		LOG_INFO("[%s]: restart polling_work \r\n", __func__);
 		epl_sensor_restart_polling();
 	}
-#endif /*CONFIG_HAS_EARLYSUSPEND*/
+
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
-
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-/*----------------------------------------------------------------------------*/
-static void epl_sensor_late_resume(struct early_suspend *h)
-{
-	struct epl_sensor_priv *epld = epl_sensor_obj;
-	LOG_FUN();
-
-	if (!epld) {
-		LOG_ERR("null pointer!!\n");
-		return;
-	}
-
-	epld->als_suspend = 0;
-	epld->ps_suspend = 0;
-
-	LOG_DBG("[%s]: enable_pflag=%d, enable_lflag=%d \r\n", __func__,
-		epld->enable_pflag, epld->enable_lflag);
-
-	if (epld->enable_pflag == 0) {
-		LOG_INFO("[%s]: ps is disabled \r\n", __func__);
-		if (epld->enable_lflag == 1) {
-			epl_sensor_fast_update(epld->client);
-			epl_sensor_update_mode(epld->client);
-		}
-	} else if (epld->enable_lflag == 1 &&
-		   epl_sensor.als.polling_mode == 1) {
-		LOG_INFO("[%s]: restart polling_work \r\n", __func__);
-		epl_sensor_restart_polling();
-	}
-}
-#endif
 
 /*----------------------------------------------------------------------------*/
 static int als_intr_update_table(struct epl_sensor_priv *epld)
@@ -4132,16 +4051,6 @@ static int epl_sensor_probe(struct i2c_client *client,
 	}
 #endif
 
-#ifdef CONFIG_SUSPEND
-
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-	epld->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
-	epld->early_suspend.suspend = epl_sensor_early_suspend;
-	epld->early_suspend.resume = epl_sensor_late_resume;
-	register_early_suspend(&epld->early_suspend);
-#endif
-
-#endif
 	wakeup_source_init(&ps_lock, "ps wakelock");
 #if ATTR_RANGE_PATH
 	kernel_kobj_dev = kobject_create_and_add("range", kernel_kobj);
@@ -4205,9 +4114,6 @@ static int epl_sensor_remove(struct i2c_client *client)
 	struct epl_sensor_priv *epld = i2c_get_clientdata(client);
 
 	dev_dbg(&client->dev, "%s: enter.\n", __func__);
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-	unregister_early_suspend(&epld->early_suspend);
-#endif
 	sysfs_remove_group(&sensor_dev->dev.kobj, &epl_sensor_attr_group);
 	platform_device_unregister(sensor_dev);
 	input_unregister_device(epld->als_input_dev);
