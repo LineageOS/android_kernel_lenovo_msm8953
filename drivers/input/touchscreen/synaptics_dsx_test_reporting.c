@@ -27,7 +27,6 @@
 #include <linux/input.h>
 #include <linux/ctype.h>
 #include <linux/hrtimer.h>
-#include <linux/wakelock.h>
 #include <linux/input/synaptics_rmi_dsx.h>
 #include "synaptics_dsx_i2c.h"
 
@@ -1745,7 +1744,7 @@ struct synaptics_rmi4_f54_handle {
 	struct synaptics_rmi4_fn55_desc *fn55;
 	struct f55_query_0_2 query_f55_0_2;
 	struct f55_query_3 query_f55_3;
-	struct wake_lock test_wake_lock;
+	struct wakeup_source test_wake_lock;
 };
 
 store_prototype(reset)
@@ -2527,7 +2526,7 @@ static void timeout_set_status(struct work_struct *work)
 		f54->report_type = INVALID_REPORT_TYPE;
 		f54->report_size = 0;
 		set_interrupt(false);
-		wake_unlock(&f54->test_wake_lock);
+		__pm_relax(&f54->test_wake_lock);
 	}
 	mutex_unlock(&f54->status_mutex);
 
@@ -2980,7 +2979,7 @@ ssize_t send_get_report_command(void)
 		return -EBUSY;
 	}
 
-	wake_lock(&f54->test_wake_lock);
+	__pm_stay_awake(&f54->test_wake_lock);
 	set_interrupt(true);
 	f54->status = STATUS_BUSY;
 
@@ -3009,7 +3008,7 @@ out:
 error_exit:
 	mutex_lock(&f54->status_mutex);
 	set_interrupt(false);
-	wake_unlock(&f54->test_wake_lock);
+	__pm_relax(&f54->test_wake_lock);
 	f54->status = retval;
 	mutex_unlock(&f54->status_mutex);
 
@@ -4740,7 +4739,7 @@ static void synaptics_rmi4_f54_status_work(struct work_struct *work)
 error_exit:
 	mutex_lock(&f54->status_mutex);
 	set_interrupt(false);
-	wake_unlock(&f54->test_wake_lock);
+	__pm_relax(&f54->test_wake_lock);
 	f54->status = retval;
 	mutex_unlock(&f54->status_mutex);
 
@@ -4981,8 +4980,7 @@ found:
 	f54->user_report_type1 = F54_16BIT_IMAGE;
 	f54->user_report_type2 = F54_RAW_16BIT_IMAGE;
 
-	wake_lock_init(&f54->test_wake_lock, WAKE_LOCK_SUSPEND,
-		"synaptics_test_report");
+	wakeup_source_init(&f54->test_wake_lock, "synaptics_test_report");
 
 #ifdef WATCHDOG_HRTIMER
 	/* Watchdog timer to catch unanswered get report commands */
