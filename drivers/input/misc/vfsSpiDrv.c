@@ -42,7 +42,6 @@
 #include <linux/i2c/twl.h>
 #include <linux/wait.h>
 #include <linux/kthread.h>
-#include <linux/wakelock.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/irq.h>
@@ -132,7 +131,7 @@ struct vfsspi_device_data {
 	int	irq_wake_enabled;
 
 	/* wake lock to ensoure fingerprint handled */
-	struct wake_lock	wake_lock;
+	struct wakeup_source	wake_lock;
 	int					wake_lock_acquired;
 	struct timer_list	wake_unlock_timer;
 
@@ -172,7 +171,7 @@ static void vfsspi_wake_unlock(struct vfsspi_device_data *data)
 	pr_debug("%s: enter\n", __func__);
 
 	if (data->wake_lock_acquired) {
-		wake_unlock(&data->wake_lock);
+		__pm_relax(&data->wake_lock);
 		data->wake_lock_acquired = 0;
 	}
 }
@@ -190,7 +189,7 @@ static void vfsspi_wake_lock_delayed_unlock(struct vfsspi_device_data *data)
 	pr_debug("%s: enter\n", __func__);
 
 	if (!data->wake_lock_acquired) {
-		wake_lock(&data->wake_lock);
+		__pm_stay_awake(&data->wake_lock);
 		data->wake_lock_acquired = 1;
 	}
 	mod_timer(&data->wake_unlock_timer, jiffies + VFSSPI_WAKE_TIME);
@@ -899,7 +898,7 @@ static int vfsspi_probe(struct platform_device *spi)
 
 	/* init wake lock */
 	vfsspi_device->wake_lock_acquired = 0;
-	wake_lock_init(&vfsspi_device->wake_lock, WAKE_LOCK_SUSPEND, "fingerprint_wakelock");
+	wakeup_source_init(&vfsspi_device->wake_lock, "fingerprint_wakelock");
 
 	/* init work queue for interrupt */
 	INIT_WORK(&vfsspi_device->irq_worker, vfsspi_irq_worker);
