@@ -40,7 +40,6 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/nfc/bcm2079x.h>
-#include <linux/wakelock.h>
 #include <linux/clk.h>
 
 /* do not change below */
@@ -65,7 +64,7 @@ struct bcm2079x_dev {
 	bool irq_enabled;
 	spinlock_t irq_enabled_lock;
 	unsigned int count_irq;
-	struct wake_lock wakelock;
+	struct wakeup_source wakelock;
 };
 
 static struct clk *clk_rf;
@@ -161,7 +160,7 @@ static irqreturn_t bcm2079x_dev_irq_handler(int irq, void *dev_id)
 	spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
 	bcm2079x_dev->count_irq++;
 	spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
-	wake_lock_timeout(&bcm2079x_dev->wakelock, HZ);
+	__pm_wakeup_event(&bcm2079x_dev->wakelock, HZ);
 	dev_info(&bcm2079x_dev->client->dev,"bcm2079x_dev_irq_handler, count_irq = %d\n", bcm2079x_dev->count_irq);
 	wake_up(&bcm2079x_dev->read_wq);
 
@@ -456,7 +455,7 @@ static int bcm2079x_probe(struct i2c_client *client,
 		}
 	}
 
-	wake_lock_init(&bcm2079x_dev->wakelock, WAKE_LOCK_SUSPEND, "bcm2079x");
+	wakeup_source_init(&bcm2079x_dev->wakelock, "bcm2079x");
 
 	/* init mutex and queues */
 	init_waitqueue_head(&bcm2079x_dev->read_wq);
@@ -498,8 +497,8 @@ err_request_irq_failed:
 	misc_deregister(&bcm2079x_dev->bcm2079x_device);
 err_misc_register:
 	mutex_destroy(&bcm2079x_dev->read_mutex);
-	wake_unlock(&bcm2079x_dev->wakelock);
-	wake_lock_destroy(&bcm2079x_dev->wakelock);
+	__pm_relax(&bcm2079x_dev->wakelock);
+	wakeup_source_trash(&bcm2079x_dev->wakelock);
 	if (bcm2079x_dev->vdd_swp != NULL)
 		regulator_disable(bcm2079x_dev->vdd_swp);
 err_en_regulator_swp:
@@ -531,8 +530,8 @@ static int bcm2079x_remove(struct i2c_client *client)
 	gpio_free(bcm2079x_dev->irq_gpio);
 	gpio_free(bcm2079x_dev->en_gpio);
 	gpio_free(bcm2079x_dev->wake_gpio);
-	wake_unlock(&bcm2079x_dev->wakelock);
-	wake_lock_destroy(&bcm2079x_dev->wakelock);
+	__pm_relax(&bcm2079x_dev->wakelock);
+	wakeup_source_trash(&bcm2079x_dev->wakelock);
 	bcm2079x_clk_disable();
 	kfree(bcm2079x_dev);
 
