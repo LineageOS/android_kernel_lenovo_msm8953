@@ -1,0 +1,214 @@
+
+/ {
+	reserved-memory {
+		ramoops_mem: ramoops_region@0 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x8ee00000 0x0 0x80000>;
+		};
+	};
+
+	reserved-memory {
+		other_ext_mem: other_ext_region@0 {
+			reg = <0x0 0x83300000 0x0 0x3800000>;
+		};
+	};
+
+	aliases {
+		/* smdtty devices */
+		i2c8 = &i2c_8;
+	};
+
+
+};
+
+
+&soc {
+	ramoops {
+		compatible = "ramoops";
+		status = "ok";
+
+		/* This is tacked at the end of wcnss_fw_region@0 */
+		android,ramoops-buffer-start = <0x8ee00000>;
+		android,ramoops-buffer-size = <0x80000>;
+		android,ramoops-console-size = <0x40000>;
+		android,ramoops-pmsg-size = <0x20000>;
+		android,ramoops-record-size = <0x5000>;
+		android,ramoops-ftrace-size = <0x15000>;
+		android,ramoops-dump-oops = <0x1>;
+		linux,contiguous-region = <&ramoops_mem>;
+	};
+
+	spi_3: spi@78b7000 { /* BLSP1 QUP3 */
+		status = "disabled";
+	};
+
+	i2c_2: i2c@78b6000 { /* BLSP1 QUP2 */
+		/* DSI_TO_HDMI I2C configuration */
+		/delete-node/ adv7533@39;
+	};
+	i2c_5: i2c@7af5000 { /* BLSP2 QUP1 */
+		usb_power_dev@20 {
+			compatible = "ti,tusb422-usb-pd";
+			reg = <0x20>;
+			pinctrl-names = "tusb_active", "tusb_suspend";
+			pinctrl-0 = <&vconn_en_active &tusb_int_active>;
+			pinctrl-1 = <&vconn_en_suspend &tusb_int_suspend>;
+			ti,usb-id = <0xec 0x8 0x0>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <28 0x2>;
+			ti,alert-gpio = <&tlmm 0x1c 0x2>;
+			ti,vconn-en-gpio = <&tlmm 0x2 0x0>;
+			ti,usb-comm-capable;
+			ti,no-usb-suspend;
+			ti,src-settling-time-ms = [00 32];
+			ti,fast-role-swap-support = <0x0>;
+			ti,pdo-priority = <0x0>;
+			ti,role = <0x2>;
+			ti,rp-val = <0x2>;
+			ti,flags = <0x0>;
+			source@0 {
+				ti,current-flow = <0x0>;
+				ti,supply-type = <0x0>;
+				ti,pdo-number = <0x0>;
+				ti,min-voltage = <0x1388>;
+				ti,max-voltage = <0x0>;
+				ti,peak-current = <0x0>;
+				ti,max-current = <0xbb8>;
+				ti,max-power = <0x0>;
+			};
+			sink@0 {
+				ti,current-flow = <0x1>;
+				ti,supply-type = <0x0>;
+				ti,pdo-number = <0x0>;
+				ti,min-voltage = <0x1388>;
+				ti,max-voltage = <0x0>;
+				ti,max-operating-curr = <0x7d0>;
+				ti,min-operating-curr = <0x64>;
+				ti,operational-curr = <0x7d0>;
+				ti,max-operating-pwr = <0x0>;
+				ti,min-operating-pwr = <0x0>;
+				ti,operational-pwr = <0x0>;
+				ti,peak-current = <0x0>;
+			};
+			sink@1 {
+				ti,current-flow = <0x1>;
+				ti,supply-type = <0x0>;
+				ti,pdo-number = <0x1>;
+				ti,min-voltage = <0x1388>;
+				ti,max-voltage = <0x0>;
+				ti,max-operating-curr = <0x7d0>;
+				ti,min-operating-curr = <0x64>;
+				ti,operational-curr = <0x7d0>;
+				ti,max-operating-pwr = <0x0>;
+				ti,min-operating-pwr = <0x0>;
+				ti,operational-pwr = <0x0>;
+				ti,peak-current = <0x0>;
+			};
+		};
+
+	};
+	i2c_8: i2c@7af8000 { /* BLSP2 QUP4 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0x7af8000 0x600>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 302 0>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp2_qup4_i2c_apps_clk>;
+
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_8_active>;
+		pinctrl-1 = <&i2c_8_sleep>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+		qcom,master-id = <84>;
+		dmas = <&dma_blsp2 10 64 0x20000020 0x20>,
+			<&dma_blsp2 11 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		
+		sx9310@28 {
+			compatible = "Semtech,sx9310";
+			reg = <0x28>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&sx9310_int_default>;
+			pinctrl-1 = <&sx9310_int_sleep>;
+			vio-supply = <&pm8953_l5>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <0x30 0x2>;
+			Semtech,gpio-irq = <&tlmm 0x30 0x2>;
+		};
+	};
+
+
+
+	sn_fuse: snfuse@0xA4128 {
+	    compatible = "qcom,sn-fuse";
+	    reg = <0xA4128 0x4>,
+		  	  <0xA6034 0x4>;
+	    reg-names =  "sn-base", "fuse-state";
+	};
+	
+	goodix_fp: goodix_fp {
+		compatible = "goodix,fingerprint";
+		interrupt-parent = <&tlmm>;
+		interrupt = <0x11 0x0>;
+		vcc_spi-supply = <&pm8953_l6>;
+		vdd_ana-supply = <&pm8953_l6>;
+		vdd_io-supply = <&pm8953_l6>;
+		goodix,gpio_reset = <&tlmm 0x8c 0x0>;
+		goodix,gpio_irq = <&tlmm 0x11 0x0>;
+		goodix,gpio_pwr = <&tlmm 0x60 0x0>;
+	};
+
+	/delete-node/ qseecom@85b00000;
+	qcom_seecom: qseecom@83300000 {
+		compatible = "qcom,qseecom";
+		reg = <0x83300000 0x3000000>;
+		reg-names = "secapp-region";
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,support-fde;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,support-bus-scaling;
+		qcom,appsbl-qseecom-support;
+		qcom,msm-bus,vectors-KBps =
+			<55 512 0 0>,
+			<55 512 0 0>,
+			<55 512 120000 1200000>,
+			<55 512 393600 3936000>;
+		clocks = <&clock_gcc clk_crypto_clk_src>,
+			<&clock_gcc clk_gcc_crypto_clk>,
+			<&clock_gcc clk_gcc_crypto_ahb_clk>,
+			<&clock_gcc clk_gcc_crypto_axi_clk>;
+		clock-names = "core_clk_src", "core_clk",
+				"iface_clk", "bus_clk";
+		qcom,ce-opp-freq = <100000000>;
+	};
+
+};
+
+
+&pm8953_gpios {
+	/* GPIO 8 (USB_ID) */
+	gpio@c700 {
+		qcom,invert = <1>;
+		qcom,mode = <1>;		// QPNP_PIN_MODE_DIG_OUT = 1
+		qcom,pull = <5>;		// QPNP_PIN_PULL_UP_30 = 5 (uA)
+		qcom,vin-sel = <0>;		// QPNP_PIN_VIN2 = 0
+		qcom,out-strength = <2>;	// QPNP_PIN_OUT_STRENGTH_IGH  = 2
+		qcom,src-sel = <0>;		// QPNP_PIN_SEL_FUNC_CONSTANT = 0
+		qcom,master-en = <1>;		// 1 – Enables features within the pin block based on configuration
+		status = "okay";
+	};
+};
+

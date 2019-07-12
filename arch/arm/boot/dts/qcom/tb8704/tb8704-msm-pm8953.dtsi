@@ -1,0 +1,17 @@
+&pm8953_typec {
+    /delete-property/ ss-mux-supply;
+};
+
+&spmi_bus {
+	qcom,pm8953@0 {
+		qcom,power-on@800 {
+			qcom,pon_1 {
+				qcom,s1-timer = <0x1a40>;
+				qcom,s2-timer = <0x7d0>;
+				qcom,s2-type = <0x5>;
+				qcom,support-reset = <0x1>;
+				qcom,s2-type = <7>;//soft(0) warm(1) shutdown(4) hard (7);
+			};
+		};
+	};
+};

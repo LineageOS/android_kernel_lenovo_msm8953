@@ -1,0 +1,76 @@
+&spmi_bus {
+	qcom,pmi8950@2 {
+		pmi8950_mpps: mpps {
+			mpp@a000 {
+			qcom,mode = <4>; /* AIN input */
+			qcom,invert = <1>; /* Enable MPP */
+			qcom,ain-route = <0>; /* AMUX 5 */
+			qcom,master-en = <1>;
+			qcom,src-sel = <0>; /* Function constant */
+			status = "okay";
+			};
+		};
+		pmi8950_charger: qcom,qpnp-smbcharger {
+			qcom,iterm-ma = <256>;
+			qcom,float-voltage-mv = <4420>;
+			qcom,resume-delta-mv = <200>;
+			/delete-property/ qcom,parallel-usb-min-current-ma;
+			/delete-property/ qcom,parallel-usb-9v-min-current-ma;
+			/delete-property/ qcom,parallel-allowed-lowering-ma;
+			qcom,fastchg-current-comp = <1200>;
+			qcom,fastchg-current-ma = <2400>;
+			qcom,float-voltage-comp =<0>;
+			qcom,charge-unknown-battery;
+			qcom,thermal-mitigation = <1500 1100 900 700 0>;
+			qcom,usb_ss_sel = <&tlmm 139 0>;
+			pinctrl-0 = <&usb_ss_sel_config>;
+			pinctrl-names = "default";
+			qcom,mpp1_adc-vadc = <&pmi8950_vadc>;
+		};
+
+	};
+	
+	qcom,pmi8950@3 {
+		pmi8950_pwm: pwm@b000 {
+			status = "okay";
+			qcom,mode-select = <0>;
+			qcom,period = <2300000>;
+			qcom,dtest-line = <2>;
+			qcom,dtest-output = <2>;
+			qcom,pwm {
+				qcom,duty = <0>;
+				label = "pwm";
+			};
+		};
+		pmi_haptic: qcom,haptic@c000 {
+			qcom,actuator-type = "erm";
+			/delete-property/ qcom,lra-auto-res-mode;
+			/delete-property/ qcom,lra-high-z;
+			/delete-property/ qcom,lra-res-cal-period;
+			qcom,vmax-mv = <3000>;
+			qcom,wave-play-rate-us =<5263>;
+		};
+	};
+};
+
+
+&pmi8950_vadc {
+	chan@10 {
+		label = "mpp1_adc";
+		qcom,calibration-type = "ratiometric";
+		qcom,decimation = <0x0>;
+		qcom,fast-avg-setup = <0x0>;
+		qcom,hw-settle-time = <0x2>;
+		qcom,pre-div-channel-scaling = <0x0>;
+		qcom,scale-function = <0x0>;
+		reg = <0x10>;
+		status = "okay";
+	};
+};
+
+
+&wled {
+	qcom,en-phase-stag;
+	qcom,ibb-pwrup-dly = <0x8>;
+};
+
