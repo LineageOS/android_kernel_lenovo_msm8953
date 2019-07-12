@@ -1,0 +1,162 @@
+/{
+	mtp_batterydata: qcom,battery-data {
+		/delete-node/ qcom,ascent-3450mah;
+		/delete-node/ qcom,itech-3000mah;
+		#include "batterydata-scud-4850mah.dtsi"
+		#include "batterydata-sunwoda-4850mah.dtsi"
+	};
+};
+
+
+&soc {
+    
+    i2c@78b7000 { /* BLSP1 QUP3 */
+	status = "ok";
+	/delete-node/ synaptics@4b;
+	goodix_ts@5d {
+	    compatible = "goodix,gt9xx";
+	    reg = <0x5d>;
+	    interrupt-parent = <&tlmm>;
+	    interrupts = <65 0x2>;
+	    vcc_i2c-supply = <&pm8953_l6>;
+	    goodix,dbl_clk_wakeup;
+	    goodix,i2c-pull-up;
+	    goodix,power_ldo-gpio = <&tlmm 131 0x00>;
+	    goodix,reset-gpio = <&tlmm 64 0x00>;
+	    goodix,irq-gpio = <&tlmm 65 0x00>;
+	    pinctrl-names = "pmx_ts_active",
+			"pmx_ts_suspend",
+			"pmx_ts_release";
+	    pinctrl-0 = <&ts_int_active &ts_reset_active &ts_pwr_active>;
+	    pinctrl-1 = <&ts_int_suspend &ts_reset_suspend &ts_pwr_suspend>;
+	    pinctrl-2 = <&ts_release>;
+	    goodix,cfg-group0 = [
+	    4f b0 04 80 07 0a f4 38 11 c6 3c
+	    0d 4e 3a 5f 33 01 01 09 aa 22 22
+	    05 17 19 1c 14 95 34 dd 4c 4e 36
+	    11 32 00 00 43 32 1c 18 16 1e 90
+	    82 23 64 64 28 4f 0a 32 5a 94 c4
+	    d7 23 28 1e 04 7f 35 00 85 3b ac
+	    84 43 00 85 4b 00 8a 55 14 80 00
+	    00 00 00 00 00 00 00 00 00 00 00
+	    23 0e a6 52 43 25 05 00 00 04 44
+	    00 00 89 a6 c8 23 02 23 14 60 00
+	    3c 28 19 18 17 16 15 14 13 12 11
+	    10 0f 0e 0d 0c 0b 0a 09 08 07 06
+	    05 04 03 02 01 00 ff ff ff ff 00
+	    01 02 03 04 05 06 07 08 09 0a 0b
+	    0c 0d 0e 0f 10 11 12 13 14 15 16
+	    17 18 19 1b 1c 1d 1e 1f 20 21 22
+	    23 24 25 26 27 28 29 ff ca 01
+	    ];
+	    goodix,cfg-group2 = [
+	    49 b0 04 80 07 0a 44 30 11 c8 3c
+	    0b 4e 37 8a 54 01 01 09 aa 22 22
+	    05 17 19 1c 14 95 34 dd 4c 4e 36
+	    11 33 00 01 43 32 1c 18 16 1e 90
+	    82 23 64 64 28 4f 0a 32 64 94 c3
+	    c7 28 28 1e 04 86 35 00 82 3d ac
+	    80 46 00 80 51 00 85 5d 14 85 00
+	    00 00 00 00 00 00 00 00 00 00 00
+	    23 0e a6 52 43 25 05 00 00 04 44
+	    00 00 89 a6 c8 23 02 23 19 00 00
+	    37 23 19 18 17 16 15 14 13 12 11
+	    10 0f 0e 0d 0c 0b 0a 09 08 07 06
+	    05 04 03 02 01 00 ff ff ff ff 00
+	    01 02 03 04 05 06 07 08 09 0a 0b
+	    0c 0d 0e 0f 10 11 12 13 14 15 16
+	    17 18 19 1b 1c 1d 1e 1f 20 21 22
+	    23 24 25 26 27 28 29 ff 96 01
+	    ];
+	};
+    };
+
+};
+
+&i2c_5 { /* BLSP2 QUP1 (NFC) */
+		/delete-node/ nq@28;
+};
+
+
+&pmi8950_fg {
+	qcom,cold-bat-decidegc = <0x0>;
+	qcom,cold-hot-jeita-hysteresis = <0x14 0x14>;
+	qcom,cool-bat-decidegc = <0x96>;
+	qcom,fg-chg-iterm-ma = <0xfa>;
+	qcom,fg-cutoff-voltage-mv = <0xd48>;
+	qcom,fg-delta-soc = <0x1>;
+	qcom,fg-iterm-ma = <0x12c>;
+	qcom,hot-bat-decidegc = <0x1f4>;
+	qcom,irq-volt-empty-mv = <0xc1c>;
+	qcom,resume-soc = <0x63>;
+	qcom,resume-soc-raw = <0xfe>;
+	qcom,vbat-estimate-diff-mv = <0xc8>;
+	qcom,warm-bat-decidegc = <0x1c2>;
+};
+
+&pm8953_typec {
+	/delete-property/ qcom,ssmux-gpio;
+	/delete-property/ pinctrl-names;
+	/delete-property/ pinctrl-0;
+};
+
+&mdss_dsi0 {
+        qcom,dsi-pref-prim-pan = <&dsi_boent51021_1200p_vid>;
+        qcom,platform-reset-gpio = <&tlmm 63 0>;
+        qcom,platform-bklight-en-gpio = <&tlmm 46 0>;
+};
+
+&spmi_bus {
+        qcom,pmi8950@2 {
+                qcom,leds@a100 {
+                        status = "okay";
+                        /delete-property/ label;
+                        qcom,led_mpp_2 {
+                    		label = "mpp";
+                                linux,name = "green";
+                                linux,default-trigger = "none";
+                                qcom,default-state = "off";
+                                qcom,max-current = <40>;
+                                qcom,current-setting = <0x14>;
+                                qcom,id = <6>;
+                                qcom,mode = "manual";
+                                qcom,source-sel = <1>;
+                                qcom,mode-ctrl = <0x61>;
+                        };
+                };
+
+		qcom,leds@a300 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xa300 0x100>;
+			status = "okay";
+
+			qcom,led_mpp_4 {
+				label = "mpp";
+				linux,default-trigger = "none";
+				linux,name = "blue";
+				pwm-names = "blue";
+				pwms = <&pmi8950_pwm 0 0>;
+				qcom,current-setting = <0x14>;
+				qcom,default-state = "off";
+				qcom,id = <0x6>;
+				qcom,max-current = <0x28>;
+				qcom,mode = "pwm";
+				qcom,mode-ctrl = <0x60>;
+				qcom,pwm-us = <2300000>;
+				qcom,source-sel = <0xa>;
+			};
+		};
+        };
+};
+
+&soc {
+	hall_switch {
+		compatible = "hall-switch,ah1887";
+		pinctrl-names = "hall_active", "hall_suspend";
+		pinctrl-0 = <&hall_int_active>;
+		pinctrl-1 = <&hall_int_suspend>;
+		interrupt-names = "hall_irq";
+		hall,irq-cover = <&tlmm 44 0x2008>;
+		hall,irq-holder = <&tlmm 59 0x2008>;
+	};
+};
