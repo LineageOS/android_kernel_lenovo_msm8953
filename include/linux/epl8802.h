@@ -8,38 +8,6 @@
 #define ELAN_EPL8800_IOCTL_ENABLE_LFLAG _IOW(ELAN_IOCTL_MAGIC, 4, int *)
 #define ELAN_EPL8800_IOCTL_GETDATA _IOR(ELAN_IOCTL_MAGIC, 5, int *)
 
-/*LEADCORE*/
-/* Magic number for MPU Iocts */
-#define LIGHT_IOCTL (0x82)
-/* IOCTL commands for /dev/lights */
-
-#define PROXIMITY_IOCTL (0x83)
-/* IOCTL commands for /dev/proximity */
-
-/*light and proximity  ioctl*/
-#define LIGHT_SET_DELAY _IOW(LIGHT_IOCTL, 0x1, unsigned long)
-#define LIGHT_SET_ENALBE _IOR(LIGHT_IOCTL, 0x2, unsigned long)
-#define PROXIMITY_SET_DELAY _IOR(PROXIMITY_IOCTL, 0x3, unsigned long)
-#define PROXIMITY_SET_ENALBE _IOW(PROXIMITY_IOCTL, 0x4, unsigned long)
-
-#define LIGHT_DEFAULT_DELAY 200 /* 200 ms */
-#define LIGHT_MAX_DELAY 2000 /* 2000 ms */
-#define LIGHT_MIN_DELAY 100 /*100 ms*/
-
-#define PROXIMITY_DEFAULT_DELAY 200 /* 200 ms */
-#define PROXIMITY_MAX_DELAY 2000 /* 2000 ms */
-#define PROXIMITY_MIN_DELAY 100 /*100 ms*/
-
-/*MARVELL*/
-#define LTR_IOCTL_MAGIC 0x1C
-#define LTR_IOCTL_GET_PFLAG _IOR(LTR_IOCTL_MAGIC, 1, int)
-#define LTR_IOCTL_GET_LFLAG _IOR(LTR_IOCTL_MAGIC, 2, int)
-#define LTR_IOCTL_SET_PFLAG _IOW(LTR_IOCTL_MAGIC, 3, int)
-#define LTR_IOCTL_SET_LFLAG _IOW(LTR_IOCTL_MAGIC, 4, int)
-#define LTR_IOCTL_GET_DATA _IOW(LTR_IOCTL_MAGIC, 5, unsigned char)
-
-/************************************************************************************/
-
 #define MODE_IDLE (0)
 #define MODE_ALS (1)
 #define MODE_PS (2)
@@ -236,6 +204,7 @@ struct _als_factory {
 	bool calibrated;
 	u16 lux_per_count;
 };
+
 struct _hs_setting {
 	bool dynamic_intt;
 	u8 integration_time;
