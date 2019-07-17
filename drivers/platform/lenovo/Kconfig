@@ -6,6 +6,13 @@ config MACH_LENOVO
 	help
 	  Support for Lenovo products
 
+config MACH_LENOVO_MSM8917
+	bool "Lenovo MSM8917"
+	depends on ARCH_MSM8917
+	select MACH_LENOVO
+	help
+	  Support for MSM8917 Lenovo variants
+
 config MACH_LENOVO_MSM8953
 	bool "Lenovo MSM8953"
 	depends on ARCH_MSM8953
@@ -21,11 +28,29 @@ config MACH_LENOVO_KUNTAO
 	help
 	  Support for Lenovo P2 (kuntao)
 
+config MACH_LENOVO_TB8504
+	bool "TB8504 board"
+	select MACH_LENOVO_MSM8917
+	help
+	  Support for Lenovo Tab4 8 (TB8504, P3588)
+
 config MACH_LENOVO_TB8703
 	bool "TB8703 board"
 	select MACH_LENOVO_MSM8953
 	help
 	  Support for Lenovo Tab3 8 Plus (TB8703)
+
+config MACH_LENOVO_TB8704
+	bool "TB8704 board"
+	select MACH_LENOVO_MSM8953
+	help
+	  Support for Lenovo Tab4 8 Plus (TB8704, P3590)
+
+config MACH_LENOVO_TB8804
+	bool "TB8804 board"
+	select MACH_LENOVO_MSM8953
+	help
+	  Support for  Lenovo Xiaoxin TB-8804 (TB8804, P3592)
 
 config MACH_LENOVO_TBX704
 	bool "TBX704 board"
