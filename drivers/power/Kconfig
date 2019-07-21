@@ -628,6 +628,10 @@ config QPNP_TYPEC
 	  CC-orientation. The module does not support USB power-delivery. The driver
 	  adds support to report these type-C parameters via the power-supply
 	  framework.
+#add by longcheer_liml_2017_03_27
+config USB_FUSB302
+	bool "Enable fusb422 USB Power Delivery"
+	default n
 
 config MSM_BCL_CTL
 	bool "BCL Framework driver"
@@ -660,3 +664,4 @@ endif # POWER_SUPPLY
 source "drivers/power/avs/Kconfig"
 source "drivers/power/qcom/Kconfig"
 source "drivers/power/onsemi/Kconfig"
+source "drivers/power/tusb422/Kconfig"

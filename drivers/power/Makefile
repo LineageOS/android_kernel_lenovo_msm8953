@@ -86,3 +86,4 @@ obj-$(CONFIG_MSM_BCL_PERIPHERAL_CTL) += bcl_peripheral.o
 obj-$(CONFIG_POWER_RESET)	+= reset/
 obj-$(CONFIG_ARCH_MSM)		+= qcom/
 obj-$(CONFIG_USB_FUSB302)	+= onsemi/
+obj-$(CONFIG_TUSB422)	+= tusb422/
