@@ -294,6 +294,9 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_TYPEC,	/* Type-C */
 	POWER_SUPPLY_TYPE_UFP,		/* Type-C UFP */
 	POWER_SUPPLY_TYPE_DFP,		/* TYpe-C DFP */
+#if defined(CONFIG_TUSB422) || defined(CONFIG_USB_FUSB302)
+	POWER_SUPPLY_TYPE_T_HUB,
+#endif
 };
 
 /* Indicates USB Type-C CC connection status */
