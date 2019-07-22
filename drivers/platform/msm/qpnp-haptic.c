@@ -1797,7 +1797,9 @@ static void qpnp_timed_enable_worker(struct work_struct *work)
 		hrtimer_cancel(&hap->auto_res_err_poll_timer);
 
 	hrtimer_cancel(&hap->hap_timer);
-
+#if defined(CONFIG_MACH_LENOVO_TB8704)
+	value *= 2;
+#endif
 	if (value == 0) {
 		if (hap->state == 0) {
 			mutex_unlock(&hap->lock);
