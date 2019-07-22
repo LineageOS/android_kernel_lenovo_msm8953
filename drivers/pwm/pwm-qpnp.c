@@ -2195,7 +2195,9 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 	}
 
 	_pwm_change_mode(chip, enable);
+#if !defined (CONFIG_MACH_LENOVO_TB8704) || !defined (CONFIG_MACH_LENOVO_TB8804)//yangbo add for P3592 20170119
 	_pwm_enable(chip);
+#endif
 
 read_opt_props:
 	/* Initialize optional config parameters from DT if provided */
