@@ -3691,6 +3691,9 @@ static int qpnp_get_config_pwm(struct pwm_config_data *pwm_cfg,
 		pwm_cfg->lut_params.idx_len =
 			pwm_cfg->duty_cycles->num_duty_pcts;
 	}
+#if defined(CONFIG_MACH_LENOVO_TB8704) || defined(CONFIG_MACH_LENOVO_TB8804)
+	pwm_disable(pwm_cfg->pwm_dev);
+#endif
 	return 0;
 
 bad_lpg_params:
