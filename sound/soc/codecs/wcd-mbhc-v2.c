@@ -34,6 +34,12 @@
 #include "wcd-mbhc-v2.h"
 #endif
 #include "wcdcal-hwdep.h"
+#ifdef CONFIG_HEADSET_EUO_US_SWITCH_P3592
+#include "ts3a225e.h"
+
+/* LCSH ADD headset detection test point(/sys/android_mic/us_eu) @duanlongfei 20170223 */
+extern void lct_mic_set(int val);
+#endif
 
 #define WCD_MBHC_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | \
 			   SND_JACK_OC_HPHR | SND_JACK_LINEOUT | \
@@ -67,6 +73,10 @@
 
 #ifdef CONFIG_MACH_LENOVO_TBX704
 #define US_EU_PULL_DOWN  0
+#endif
+
+#if defined(CONFIG_MACH_LENOVO_TB8704)
+static int pa_on_flag = 0;
 #endif
 static int det_extn_cable_en;
 #ifdef CONFIG_MACH_LENOVO_TBX704
@@ -484,7 +494,7 @@ static void wcd_cancel_hs_detect_plug(struct wcd_mbhc *mbhc,
 	}
 	WCD_MBHC_RSC_LOCK(mbhc);
 }
-#if !defined(CONFIG_SPEAKER_EXT_PA) //p3585 ext pa,don't on hph pa here
+
 static void wcd_mbhc_clr_and_turnon_hph_padac(struct wcd_mbhc *mbhc)
 {
 	bool pa_turned_on = false;
@@ -545,7 +555,7 @@ static void wcd_mbhc_set_and_turnoff_hph_padac(struct wcd_mbhc *mbhc)
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPH_PA_EN, 0);
 	usleep_range(wg_time * 1000, wg_time * 1000 + 50);
 }
-#endif
+
 int wcd_mbhc_get_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 			uint32_t *zr)
 {
@@ -645,9 +655,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				mbhc->hph_status, WCD_MBHC_JACK_MASK);
-        #if !defined(CONFIG_SPEAKER_EXT_PA) //p3585 ext pa,don't off hph pa here
 		wcd_mbhc_set_and_turnoff_hph_padac(mbhc);
-        #endif
 		hphrocp_off_report(mbhc, SND_JACK_OC_HPHR);
 		hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
 		mbhc->current_plug = MBHC_PLUG_TYPE_NONE;
@@ -769,9 +777,14 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				    (mbhc->hph_status | SND_JACK_MECHANICAL),
 				    WCD_MBHC_JACK_MASK);
-        #if !defined(CONFIG_SPEAKER_EXT_PA) //p3585 ext pa,don't on hph pa here
+
+
+
+#if defined(CONFIG_MACH_LENOVO_TB8704)
+		if (!pa_on_flag)
+#endif
 		wcd_mbhc_clr_and_turnon_hph_padac(mbhc);
-        #endif
+
 	}
 	pr_debug("%s: leave hph_status %x\n", __func__, mbhc->hph_status);
 }
@@ -1065,11 +1078,13 @@ static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
 
 	WCD_MBHC_REG_READ(WCD_MBHC_HS_COMP_RESULT, hs_comp_res);
 	while (!is_spl_hs)  {
+#ifndef CONFIG_HEADSET_EUO_US_SWITCH_P3592  
 		if (mbhc->hs_detect_work_stop) {
 			pr_debug("%s: stop requested: %d\n", __func__,
 					mbhc->hs_detect_work_stop);
 			break;
 		}
+#endif
 		delay = delay + 50;
 		if (mbhc->mbhc_cb->mbhc_common_micb_ctrl) {
 			mbhc->mbhc_cb->mbhc_common_micb_ctrl(codec,
@@ -1380,6 +1395,16 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 			plug_type = MBHC_PLUG_TYPE_INVALID;
 	}
 
+#if defined(CONFIG_MACH_LENOVO_TB8704)
+	if (mbhc->mbhc_cb->hph_pa_on_status) {
+		pa_on_flag = mbhc->mbhc_cb->hph_pa_on_status(codec);
+		if (pa_on_flag) {
+			gpio_set_value_cansleep(6, false);
+			gpio_set_value_cansleep(134, false);
+			wcd_mbhc_set_and_turnoff_hph_padac(mbhc);
+		}
+	}
+#endif
 	do {
 		cross_conn = wcd_check_cross_conn(mbhc);
 		try++;
@@ -1397,6 +1422,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		goto correct_plug_type;
 	}
 
+#if !defined(CONFIG_MACH_LENOVO_TB8704)
 	if ((plug_type == MBHC_PLUG_TYPE_HEADSET ||
 	     plug_type == MBHC_PLUG_TYPE_HEADPHONE) &&
 	    (!wcd_swch_level_remove(mbhc))) {
@@ -1404,6 +1430,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		wcd_mbhc_find_plug_and_report(mbhc, plug_type);
 		WCD_MBHC_RSC_UNLOCK(mbhc);
 	}
+#endif
 
 correct_plug_type:
 
@@ -1423,6 +1450,13 @@ correct_plug_type:
 							mbhc->codec);
 				mbhc->micbias_enable = false;
 			}
+#if defined(CONFIG_MACH_LENOVO_TB8704)
+			if (pa_on_flag) {
+				wcd_mbhc_clr_and_turnon_hph_padac(mbhc);
+				gpio_set_value_cansleep(6, true);
+				gpio_set_value_cansleep(134, true);
+			}
+#endif
 			goto exit;
 		}
 		if (mbhc->btn_press_intr) {
@@ -1449,6 +1483,13 @@ correct_plug_type:
 							mbhc->codec);
 				mbhc->micbias_enable = false;
 			}
+#if defined(CONFIG_MACH_LENOVO_TB8704)
+			if (pa_on_flag) {
+				wcd_mbhc_clr_and_turnon_hph_padac(mbhc);
+				gpio_set_value_cansleep(6, true);
+				gpio_set_value_cansleep(134, true);
+			}
+#endif
 			goto exit;
 		}
 		WCD_MBHC_REG_READ(WCD_MBHC_HS_COMP_RESULT, hs_comp_res);
@@ -1703,6 +1744,7 @@ exit:
 }
 
 /* called under codec_resource_lock acquisition */
+#ifndef CONFIG_HEADSET_EUO_US_SWITCH_P3592
 static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 {
 	struct snd_soc_codec *codec = mbhc->codec;
@@ -1710,6 +1752,7 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 
 	pr_debug("%s: enter\n", __func__);
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
+
 
 	if (mbhc->mbhc_cb->micbias_enable_status)
 		micbias1 = mbhc->mbhc_cb->micbias_enable_status(mbhc,
@@ -1729,7 +1772,108 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 	wcd_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
 	pr_debug("%s: leave\n", __func__);
 }
+#else //P3592_PCB
+static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
+{
+    struct snd_soc_codec *codec = mbhc->codec;
+    bool micbias1 = false;
+#ifdef CONFIG_HEADSET_EUO_US_SWITCH_P3592  //P3592_PCB
+    enum wcd_mbhc_plug_type plug_type;
+	u8 ts3a225e_reg[7] = {0};
+#endif
 
+    pr_info("%s: enter\n", __func__);
+    WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
+
+#ifdef CONFIG_HEADSET_EUO_US_SWITCH_P3592  //P3592_PCB
+       pr_info("%s: start ts3a225e detect\n", __func__);
+       msleep(300);
+       ts3a225e_write_byte(0x04, 0x01);
+       msleep(500);
+       ts3a225e_read_byte(0x02, &ts3a225e_reg[1]);
+       ts3a225e_read_byte(0x03, &ts3a225e_reg[2]);
+       ts3a225e_read_byte(0x05, &ts3a225e_reg[4]);
+       ts3a225e_read_byte(0x06, &ts3a225e_reg[5]);
+       pr_info("%s: ts3a225e reg 0x02 = 0x%x\n", __func__, ts3a225e_reg[1]);
+       pr_info("%s: ts3a225e reg 0x03 = 0x%x\n", __func__, ts3a225e_reg[2]);
+       pr_info("%s: ts3a225e reg 0x05 = 0x%x\n", __func__, ts3a225e_reg[4]);
+       pr_info("%s: ts3a225e reg 0x06 = 0x%x\n", __func__, ts3a225e_reg[5]);
+
+       if (ts3a225e_reg[5] == 0x01) {
+            /* LSCH MOD for Support Selfie Stick @duanlongfei 20170322 Start */
+            if ((ts3a225e_reg[4] & 0x3f) == 0)
+            {
+                pr_info("%s: HEADPHONE 3-pole \n",__func__);
+                plug_type = MBHC_PLUG_TYPE_HEADPHONE;
+            }
+            else
+            {
+                pr_info("%s: Selfie Stick \n",__func__);
+                plug_type = MBHC_PLUG_TYPE_HEADSET;
+            }
+            /* LSCH MOD for Support Selfie Stick @duanlongfei 20170322 End */
+            ts3a225e_write_byte(0x02, 0x07);
+            /* LCSH MOD force switch to CITA mode @duanlongfei 20170221 */
+            ts3a225e_write_byte(0x03, 0x92);
+            //goto exit; 
+       } else if (ts3a225e_reg[5] == 0x02) {
+            pr_info("%s: HEADSET 4-pole \n",__func__);
+            plug_type = MBHC_PLUG_TYPE_HEADSET;
+            if (((ts3a225e_reg[4] & 0x40)  == 0) && (((ts3a225e_reg[4] & 0x38)&&(ts3a225e_reg[4]&0x7)) != 1)) {
+                pr_info("%s: CITA \n",__func__);
+                /* LCSH ADD for CITA plug-in detection test point /sys/android_mic/ue_eu @duanlongfei 20170223 */
+                lct_mic_set(0);
+            }
+            else {
+                pr_info("%s: OMTP \n",__func__);
+                /* LCSH ADD for OMTP plug-in detection test point @duanlongfei 20170223 */
+                lct_mic_set(1);
+            }
+            /*
+            if ((ts3a225e_reg[4]&0x07) == 0x07 || (ts3a225e_reg[4]&0x38) == 0x38) {
+                wcd_is_special_headset(mbhc);
+                pr_info("%s: ts3a225e is special headset, OMTP", __func__);
+            }*/
+            //goto exit;
+       } else {
+            pr_info("%s: ts3a225e detect fail\n", __func__);
+       }
+#endif
+
+    if (mbhc->mbhc_cb->hph_pull_down_ctrl)
+        mbhc->mbhc_cb->hph_pull_down_ctrl(codec, false);
+
+    if (mbhc->mbhc_cb->micbias_enable_status)
+        micbias1 = mbhc->mbhc_cb->micbias_enable_status(mbhc,
+                                                        MIC_BIAS_1);
+
+    if (mbhc->mbhc_cb->set_cap_mode)
+        mbhc->mbhc_cb->set_cap_mode(codec, micbias1, true);
+
+    if (mbhc->mbhc_cb->mbhc_micbias_control)
+        mbhc->mbhc_cb->mbhc_micbias_control(codec, MIC_BIAS_2,
+                                            MICB_ENABLE);
+    else
+        wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
+
+    /* Re-initialize button press completion object */
+
+//exit:
+    if (plug_type == MBHC_PLUG_TYPE_HEADSET ||
+        plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
+        pr_debug("%s: report plug_type = %d \n",__func__,plug_type);
+        wcd_mbhc_find_plug_and_report(mbhc, plug_type);
+#ifndef CONFIG_HEADSET_EUO_US_SWITCH_P3592
+        reinit_completion(&mbhc->btn_press_compl);
+        wcd_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
+#endif
+    } else {
+        reinit_completion(&mbhc->btn_press_compl);
+        wcd_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
+    }
+    pr_debug("%s: leave\n", __func__);
+}
+#endif
 static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 {
 	bool detection_type = false;
@@ -2109,7 +2253,6 @@ report_unplug:
 #else
 	wcd_mbhc_report_plug(mbhc, 1, SND_JACK_LINEOUT);
 #endif
-    #if !defined(CONFIG_SPEAKER_EXT_PA) //p3585 ext pa,don't off hph pa here
 	/*
 	 * If PA is enabled HPHL schmitt trigger can
 	 * be unreliable, make sure to disable it
@@ -2117,7 +2260,6 @@ report_unplug:
 	if (test_bit(WCD_MBHC_EVENT_PA_HPHL,
 		&mbhc->event_state))
 		wcd_mbhc_set_and_turnoff_hph_padac(mbhc);
-    #endif
 	/*
 	 * Disable HPHL trigger and MIC Schmitt triggers.
 	 * Setup for insertion detection.

@@ -231,6 +231,13 @@ struct msm8916_asoc_mach_data {
 #ifdef CONFIG_MACH_LENOVO_TBX704
 	int spk_ext_pa1_gpio;
 #endif
+
+#if defined(CONFIG_MACH_LENOVO_TB8504)
+	struct mutex speaker_pa_mutex;
+	struct delayed_work speaker_pa_enable_work;
+	unsigned char spk_is_on;
+#endif
+
 #if defined(CONFIG_SPEAKER_EXT_PA)
 	int spk_ext_pa_l_gpio;
     int spk_ext_pa_r_gpio;
@@ -241,7 +248,9 @@ struct msm8916_asoc_mach_data {
     unsigned char hs_is_on;
 #endif
 #if defined(CONFIG_RECEIVER_EXT_PA)
+#if !(defined (CONFIG_MACH_LENOVO_TB8804) || defined (CONFIG_MACH_LENOVO_TB8704) || defined(CONFIG_MACH_LENOVO_TB8504))
 	int spk_rec_switch_gpio_lc;
+#endif
     struct delayed_work rec_gpio_work;
     unsigned char rec_is_on;
 #endif

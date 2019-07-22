@@ -884,4 +884,10 @@ config SND_SOC_MSM_HDMI_CODEC_RX
 config SND_SOC_MSM_HDMI_DBA_CODEC_RX
 	bool "HDMI DBA Audio Playback"
 	depends on MSM_DBA
+
+#ts3a225e P3592_PCB
+config HEADSET_EUO_US_SWITCH_P3592
+	tristate "Headset euo us Switch"
+	help
+	If you say yes here, you get support for Headset euo us Switch control device
 endmenu
