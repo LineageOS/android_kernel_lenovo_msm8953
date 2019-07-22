@@ -1,0 +1,18 @@
+#
+# Elan touchscreen driver configuration
+#
+
+if TOUCHSCREEN_ELAN
+
+config TOUCHSCREEN_ELAN_TS
+	tristate "Elan core driver module"
+	depends on I2C
+	help
+	  Say Y here to enable basic touch reporting functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called elan_ts.
+
+endif

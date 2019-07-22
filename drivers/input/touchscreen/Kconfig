@@ -143,6 +143,13 @@ config TOUCHSCREEN_AUO_PIXCIR
 	  To compile this driver as a module, choose M here: the
 	  module will be called auo-pixcir-ts.
 
+source "drivers/input/touchscreen/elan/Kconfig"
+config TOUCHSCREEN_ELAN
+	tristate "Elan i2c touchscreen"
+	depends on I2C
+	help
+	  This enables support for Elan RMI over I2C based touchscreens.
+
 config TOUCHSCREEN_BU21013
 	tristate "BU21013 based touch panel controllers"
 	depends on I2C
