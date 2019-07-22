@@ -2081,6 +2081,9 @@ static int mdss_fb_blank_blank(struct msm_fb_data_type *mfd,
 		current_bl = mfd->bl_level;
 		mfd->allow_bl_update = true;
 		mdss_fb_set_backlight(mfd, 0);
+#if defined(CONFIG_MACH_LENOVO_TB8704)  || defined(CONFIG_MACH_LENOVO_TB8804)
+		mdelay(50);
+#endif
 		mfd->allow_bl_update = false;
 		mfd->unset_bl_level = current_bl;
 		mutex_unlock(&mfd->bl_lock);
