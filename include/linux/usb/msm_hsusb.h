@@ -162,6 +162,7 @@ enum usb_chg_state {
  *			voltages between 2.0-3.3v for identification.
  *
  */
+
 enum usb_chg_type {
 	USB_INVALID_CHARGER = 0,
 	USB_SDP_CHARGER,
@@ -169,6 +170,9 @@ enum usb_chg_type {
 	USB_CDP_CHARGER,
 	USB_PROPRIETARY_CHARGER,
 	USB_FLOATED_CHARGER,
+#if defined(CONFIG_MACH_LENOVO_TB8504)
+	USB_T_HUB_CHARGER,
+#endif
 };
 
 /**
@@ -415,6 +419,9 @@ struct msm_otg {
 	struct usb_phy phy;
 	struct msm_otg_platform_data *pdata;
 	struct platform_device *pdev;
+#if defined(CONFIG_MACH_LENOVO_TB8504)
+	struct qpnp_vadc_chip *id_vadc_dev;
+#endif
 	int irq;
 	int async_irq;
 	int phy_irq;

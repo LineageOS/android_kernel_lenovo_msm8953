@@ -124,6 +124,13 @@ static int dcp_max_current = IDEV_CHG_MAX;
 module_param(dcp_max_current, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(dcp_max_current, "max current drawn for DCP charger");
 
+#if defined(CONFIG_MACH_LENOVO_TB8504)
+/* Max current to be drawn for T HUB charger */
+static int thub_max_current = 500;
+module_param(thub_max_current, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(thub_max_current, "max current drawn for thub charger");
+#endif
+
 static DECLARE_COMPLETION(pmic_vbus_init);
 static struct msm_otg *the_msm_otg;
 static bool debug_bus_voting_enabled;
@@ -132,6 +139,9 @@ static struct regulator *hsusb_3p3;
 static struct regulator *hsusb_1p8;
 static struct regulator *hsusb_vdd;
 static struct regulator *vbus_otg;
+#ifdef CONFIG_MACH_LENOVO_TB8504
+static struct regulator *hsusb_gpiopull;
+#endif
 static struct power_supply *psy;
 
 static int vdd_val[VDD_VAL_MAX];
@@ -139,7 +149,20 @@ static u32 bus_freqs[USB_NOC_NUM_VOTE][USB_NUM_BUS_CLOCKS]  /*bimc,snoc,pcnoc*/;
 static char bus_clkname[USB_NUM_BUS_CLOCKS][20] = {"bimc_clk", "snoc_clk",
 						"pcnoc_clk"};
 static bool bus_clk_rate_set;
+#ifdef CONFIG_MACH_LENOVO_TB8504
+#define ID_GROUND 0
+#define ID_T_HUB_WITHOUT_POWER_HIGH 400*1000//0~0.4, normally it's around 0.021V
+#define ID_T_HUB_WITH_POWER_HIGH 900*1000//0.4~0.9, normally 0.544~0.68
 
+enum msm_otg_phy_adcid_state {
+	USB_ID_T_HUB_WITHOUT_POWER_HIGH,
+	USB_ID_T_HUB_WITH_POWER_HIGH,
+	USB_ID_HIGH
+};
+
+static int otg_get_prop_usbid_voltage_now(struct msm_otg *motg);
+static int msm_otg_read_adc_id_state(struct msm_otg *motg);
+#endif
 static void dbg_inc(unsigned *idx)
 {
 	*idx = (*idx + 1) & (DEBUG_MAX_MSG-1);
@@ -199,10 +222,27 @@ static int msm_hsusb_ldo_init(struct msm_otg *motg, int init)
 					"for hsusb 1p8\n");
 			goto put_1p8;
 		}
-
+#ifdef CONFIG_MACH_LENOVO_TB8504
+		hsusb_gpiopull = devm_regulator_get(motg->phy.dev, "HSUSB_gpiopull");
+		if (IS_ERR(hsusb_gpiopull)) {
+			dev_err(motg->phy.dev, "unable to get hsusb_gpiopull\n");
+			rc = PTR_ERR(hsusb_gpiopull);
+			goto put_1p8;
+		}
+		rc = regulator_set_voltage(hsusb_gpiopull, USB_PHY_1P8_VOL_MIN,
+				USB_PHY_1P8_VOL_MAX);
+		if (rc) {
+			dev_err(motg->phy.dev, "unable to set voltage level "
+					"for hsusb_gpiopull\n");
+			goto put_gpiopull;
+		}
+#endif
 		return 0;
 	}
-
+#ifdef CONFIG_MACH_LENOVO_TB8504
+put_gpiopull:
+	regulator_set_voltage(hsusb_gpiopull, 0, USB_PHY_1P8_VOL_MAX);
+#endif
 put_1p8:
 	regulator_set_voltage(hsusb_1p8, 0, USB_PHY_1P8_VOL_MAX);
 put_3p3_lpm:
@@ -1155,6 +1195,8 @@ static void msm_otg_exit_phy_retention(struct msm_otg *motg)
 }
 
 static void msm_id_status_w(struct work_struct *w);
+
+#ifndef CONFIG_MACH_LENOVO_TB8504
 static irqreturn_t msm_otg_phy_irq_handler(int irq, void *data)
 {
 	struct msm_otg *motg = data;
@@ -1172,6 +1214,7 @@ static irqreturn_t msm_otg_phy_irq_handler(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
+#endif
 
 #define PHY_SUSPEND_TIMEOUT_USEC (5 * 1000)
 #define PHY_DEVICE_BUS_SUSPEND_TIMEOUT_USEC 100
@@ -1254,7 +1297,11 @@ lpm_start:
 
 	if ((test_bit(B_SESS_VLD, &motg->inputs) && !device_bus_suspend &&
 		!dcp && !motg->is_ext_chg_dcp && !prop_charger &&
+#ifdef CONFIG_MACH_LENOVO_TB8504
+			!floated_charger) || sm_work_busy ||(motg->chg_type == USB_T_HUB_CHARGER)) {
+#else
 			!floated_charger) || sm_work_busy) {
+#endif
 		msm_otg_dbg_log_event(phy, "LPM ENTER ABORTED",
 				motg->inputs, motg->chg_type);
 		enable_irq(motg->irq);
@@ -1736,7 +1783,12 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
 		charger_type = POWER_SUPPLY_TYPE_USB_CDP;
 	else if (motg->chg_type == USB_DCP_CHARGER ||
 			motg->chg_type == USB_PROPRIETARY_CHARGER ||
+#ifdef CONFIG_MACH_LENOVO_TB8504
+			motg->chg_type == USB_FLOATED_CHARGER ||
+			(motg->chg_type == USB_T_HUB_CHARGER))
+#else
 			motg->chg_type == USB_FLOATED_CHARGER)
+#endif
 		charger_type = POWER_SUPPLY_TYPE_USB_DCP;
 	else
 		charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
@@ -2013,7 +2065,13 @@ static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on)
 	msm_otg_dbg_log_event(&motg->phy, "VBUS POWER", on, vbus_is_on);
 	if (vbus_is_on == on)
 		return;
-
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	if ((motg->vbus_state)&&on)
+	{
+		pr_err("external vbus is present, Y cable connected, no need to turn on PMIC VBUS regulator\n");
+		return;
+	}
+#endif
 	if (motg->pdata->vbus_power) {
 		ret = motg->pdata->vbus_power(on);
 		if (!ret)
@@ -2506,6 +2564,9 @@ static const char *chg_to_string(enum usb_chg_type chg_type)
 	case USB_CDP_CHARGER:		return "USB_CDP_CHARGER";
 	case USB_PROPRIETARY_CHARGER:	return "USB_PROPRIETARY_CHARGER";
 	case USB_FLOATED_CHARGER:	return "USB_FLOATED_CHARGER";
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	case USB_T_HUB_CHARGER:		return "USB_T_HUB_CHARGER";
+#endif
 	default:			return "INVALID_CHARGER";
 	}
 }
@@ -2522,11 +2583,24 @@ static void msm_chg_detect_work(struct work_struct *w)
 	static bool dcd;
 	u32 line_state, dm_vlgc;
 	unsigned long delay;
-
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	int adc_id_state = 0;
+	dev_dbg(phy->dev, "chg detection work, chg_state %d\n",motg->chg_state);
+#else
 	dev_dbg(phy->dev, "chg detection work\n");
+#endif
 	msm_otg_dbg_log_event(phy, "CHG DETECTION WORK",
 			motg->chg_state, get_pm_runtime_counter(phy->dev));
-
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	adc_id_state = msm_otg_read_adc_id_state(motg);
+	if(adc_id_state == USB_ID_T_HUB_WITH_POWER_HIGH)
+	{
+		motg->chg_type = USB_T_HUB_CHARGER;
+		motg->chg_state = USB_CHG_STATE_DETECTED;
+		dev_dbg(phy->dev, "T hub with charger connected\n");
+		delay = 0;
+	}
+#endif
 	switch (motg->chg_state) {
 	case USB_CHG_STATE_UNDEFINED:
 	case USB_CHG_STATE_IN_PROGRESS:
@@ -2679,6 +2753,9 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 				else
 					clear_bit(ID, &motg->inputs);
 			}
+#ifdef CONFIG_MACH_LENOVO_TB8504
+		        pr_debug("OTG_PMIC_CONTROL, pdata->pmic_id_irq %d,motg->ext_id_irq %d,motg->phy_irq %d ,pdata->usb_id_gpio %d\n",pdata->pmic_id_irq,motg->ext_id_irq,motg->phy_irq,pdata->usb_id_gpio);
+#endif
 			/*
 			 * VBUS initial state is reported after PMIC
 			 * driver initialization. Wait for it.
@@ -2784,11 +2861,16 @@ static void msm_otg_sm_work(struct work_struct *w)
 	struct device *dev = otg->phy->dev;
 	bool work = 0, dcp;
 	int ret;
-
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	pr_debug("%s work, chg_state %x, motg->chg_type %x\n", usb_otg_state_string(otg->phy->state),motg->chg_state, motg->chg_type);
+#else
 	pr_debug("%s work\n", usb_otg_state_string(otg->phy->state));
+#endif
 	msm_otg_dbg_log_event(&motg->phy, "SM WORK:",
 			otg->phy->state, motg->inputs);
-
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	pr_err("msm_otg_sm_work, usbid_voltage_now 0x%x\n",otg_get_prop_usbid_voltage_now(motg));
+#endif
 	/* Just resume h/w if reqd, pm_count is handled based on state/inputs */
 	if (motg->resume_pending) {
 		pm_runtime_get_sync(otg->phy->dev);
@@ -2830,7 +2912,12 @@ static void msm_otg_sm_work(struct work_struct *w)
 			pr_debug("!id\n");
 			msm_otg_dbg_log_event(&motg->phy, "!ID",
 					motg->inputs, otg->phy->state);
-
+#ifdef CONFIG_MACH_LENOVO_TB8504
+			if((USB_CHG_STATE_DETECTED == motg->chg_state)&&(USB_T_HUB_CHARGER== motg->chg_type))
+			{
+			    msm_otg_notify_charger(motg, thub_max_current);
+			}
+#endif
 			msm_otg_start_host(otg, 1);
 			otg->phy->state = OTG_STATE_A_HOST;
 		} else if (test_bit(B_SESS_VLD, &motg->inputs)) {
@@ -2857,6 +2944,12 @@ static void msm_otg_sm_work(struct work_struct *w)
 						otg->phy->state =
 							OTG_STATE_B_CHARGER;
 					break;
+#ifdef CONFIG_MACH_LENOVO_TB8504
+				case USB_T_HUB_CHARGER:
+					msm_otg_notify_charger(motg,
+							thub_max_current);
+					break;
+#endif
 				case USB_FLOATED_CHARGER:
 					msm_otg_notify_charger(motg,
 							IDEV_CHG_MAX);
@@ -2867,6 +2960,10 @@ static void msm_otg_sm_work(struct work_struct *w)
 							IDEV_CHG_MAX);
 					/* fall through */
 				case USB_SDP_CHARGER:
+#ifdef CONFIG_MACH_LENOVO_TB8504
+					msm_otg_notify_charger(motg,
+							500);
+#endif
 					pm_runtime_get_sync(otg->phy->dev);
 					msm_otg_start_peripheral(otg, 1);
 					otg->phy->state =
@@ -2982,7 +3079,33 @@ static void msm_otg_sm_work(struct work_struct *w)
 			msm_otg_start_host(otg, 0);
 			otg->phy->state = OTG_STATE_B_IDLE;
 			work = 1;
+#ifdef CONFIG_MACH_LENOVO_TB8504
+			if((USB_CHG_STATE_DETECTED == motg->chg_state)&&(USB_T_HUB_CHARGER== motg->chg_type))
+			{
+                            pr_debug("T hub charger, set it back to null\n");
+                            motg->chg_state = USB_CHG_STATE_UNDEFINED;
+			    motg->chg_type = USB_INVALID_CHARGER;
+			    msm_otg_notify_charger(motg, 0);
+			}
 		}
+        else
+        {
+			if((USB_CHG_STATE_DETECTED == motg->chg_state)&&(USB_T_HUB_CHARGER== motg->chg_type))
+			{
+			    msm_otg_notify_charger(motg, thub_max_current);
+			}
+            else
+            {
+                if((0 == motg->vbus_state)&&(USB_INVALID_CHARGER== motg->chg_type))
+                {
+                               /*here we need to check if VBUS is on, and open it for pure host mode support*/
+                    pr_debug("reenable VBUS power\n");
+                    msm_hsusb_vbus_power(motg, 1);
+                }
+
+            }
+#endif
+        }
 		break;
 	default:
 		break;
@@ -3059,30 +3182,57 @@ static void msm_otg_set_vbus_state(int online)
 {
 	struct msm_otg *motg = the_msm_otg;
 	static bool init;
-
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	int adc_id_state = 0;
+#endif
 	motg->vbus_state = online;
 
 	if (motg->err_event_seen)
 		return;
 
 	if (online) {
+#ifdef CONFIG_MACH_LENOVO_TB8504
+		adc_id_state = msm_otg_read_adc_id_state(motg);
+		pr_debug("PMIC: BSV set,%d,0x%lx,0x%x\n",init, motg->inputs,adc_id_state);
+#else
 		pr_debug("PMIC: BSV set\n");
+#endif
 		msm_otg_dbg_log_event(&motg->phy, "PMIC: BSV SET",
 				init, motg->inputs);
-		if (test_and_set_bit(B_SESS_VLD, &motg->inputs) && init)
-			return;
+	if (test_and_set_bit(B_SESS_VLD, &motg->inputs) && init)
+		return;
 	} else {
+#ifdef CONFIG_MACH_LENOVO_TB8504
+		pr_debug("PMIC: BSV clear,%d,%lx,%x\n",init, motg->inputs,adc_id_state);
+#else
 		pr_debug("PMIC: BSV clear\n");
+#endif
 		msm_otg_dbg_log_event(&motg->phy, "PMIC: BSV CLEAR",
 				init, motg->inputs);
 		motg->is_ext_chg_dcp = false;
+#ifdef CONFIG_MACH_LENOVO_TB8504
+		if ((!test_and_clear_bit(B_SESS_VLD, &motg->inputs) && init)&&(motg->chg_type != USB_T_HUB_CHARGER))
+			return;
+#else
 		if (!test_and_clear_bit(B_SESS_VLD, &motg->inputs) && init)
 			return;
+#endif
 	}
 
 	/* do not queue state m/c work if id is grounded */
 	if (!test_bit(ID, &motg->inputs) &&
 		!motg->pdata->vbus_low_as_hostmode) {
+#ifdef CONFIG_MACH_LENOVO_TB8504
+        if((motg->chg_type == USB_T_HUB_CHARGER)&&(0 == online))
+        {
+            pr_err("T hub charger removed, we need to schedule SM work to check if USB hub still present\n");
+		    motg->chg_state = USB_CHG_STATE_UNDEFINED;
+		    motg->chg_type = USB_INVALID_CHARGER;
+		    msm_otg_notify_charger(motg, 0);
+        }
+        else
+        {
+#endif
 		/*
 		 * state machine work waits for initial VBUS
 		 * completion in UNDEFINED state.  Process
@@ -3090,6 +3240,9 @@ static void msm_otg_set_vbus_state(int online)
 		 */
 		if (init)
 			return;
+#ifdef CONFIG_MACH_LENOVO_TB8504
+        }
+#endif
 	}
 
 	if (!init) {
@@ -3127,6 +3280,7 @@ out:
 		return;
 	}
 
+	pr_debug("msm_otg_set_vbus_state, QUEUE sm work\n");
 	msm_otg_dbg_log_event(&motg->phy, "CHECK VBUS EVENT DURING SUSPEND",
 			atomic_read(&motg->pm_suspended),
 			motg->sm_work_pending);
@@ -3147,13 +3301,38 @@ static void msm_id_status_w(struct work_struct *w)
 	struct msm_otg *motg = container_of(w, struct msm_otg,
 						id_status_work.work);
 	int work = 0;
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	int adc_id_state = 0;
+#endif
 
 	dev_dbg(motg->phy.dev, "ID status_w\n");
 
 	if (motg->pdata->pmic_id_irq)
 		motg->id_state = msm_otg_read_pmic_id_state(motg);
 	else if (motg->ext_id_irq)
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	{
+            adc_id_state = msm_otg_read_adc_id_state(motg);
+	    if(adc_id_state == USB_ID_T_HUB_WITHOUT_POWER_HIGH)
+	    {
+		    motg->id_state = 0;//gpio_get_value(motg->pdata->usb_id_gpio);
+	    }
+            else if(adc_id_state == USB_ID_T_HUB_WITH_POWER_HIGH)
+            {
+               //in case id intr come before BSV set, we need to set chg state in advance.
+                motg->chg_type = USB_T_HUB_CHARGER;
+                motg->chg_state = USB_CHG_STATE_DETECTED;
+                dev_dbg(motg->phy.dev, "ID status_w,T hub with charger connected\n");
+                motg->id_state = 0;
+            }
+	    else
+            {
+		motg->id_state = 1;
+            }
+	}
+#else
 		motg->id_state = gpio_get_value(motg->pdata->usb_id_gpio);
+#endif
 	else if (motg->phy_irq)
 		motg->id_state = msm_otg_read_phy_id_state(motg);
 
@@ -3174,6 +3353,9 @@ static void msm_id_status_w(struct work_struct *w)
 			gpio_direction_output(motg->pdata->switch_sel_gpio, 1);
 		if (test_and_clear_bit(ID, &motg->inputs)) {
 			pr_debug("ID clear\n");
+#ifdef CONFIG_MACH_LENOVO_TB8504
+			clear_bit(B_SESS_VLD, &motg->inputs);
+#endif
 			msm_otg_dbg_log_event(&motg->phy, "ID CLEAR",
 					motg->inputs, motg->phy.state);
 			work = 1;
@@ -3452,6 +3634,52 @@ const struct file_operations msm_otg_dbg_buff_fops = {
 	.release = single_release,
 };
 
+#ifdef CONFIG_MACH_LENOVO_TB8504
+static int
+otg_get_prop_usbid_voltage_now(struct msm_otg *motg)
+{
+	int rc = 0;
+	struct qpnp_vadc_result results;
+
+	if (IS_ERR_OR_NULL(motg->id_vadc_dev)) {
+		motg->id_vadc_dev = qpnp_get_vadc(motg->phy.dev, "usbid");
+		if (IS_ERR(motg->id_vadc_dev))
+                {
+		        pr_err("Unable to get id_vadc_dev.\n");
+			return PTR_ERR(motg->id_vadc_dev);
+                }
+	}
+
+	rc = qpnp_vadc_read(motg->id_vadc_dev, P_MUX2_1_1, &results); //0x11=17=P_MUX2_1_1
+	if (rc) {
+		pr_err("Unable to read usbid rc=%d\n", rc);
+		return 0;
+	} else {
+		pr_err("read usbid results.physical=%lx\n", (long unsigned int)results.physical);
+		return results.physical;
+	}
+}
+
+static int msm_otg_read_adc_id_state(struct msm_otg *motg)
+{
+
+	int usbid_adc = otg_get_prop_usbid_voltage_now(motg);
+	dev_dbg(motg->phy.dev, "msm_otg_read_adc_id_state %d\n",usbid_adc);
+	if(usbid_adc < ID_T_HUB_WITHOUT_POWER_HIGH)
+	{
+		return USB_ID_T_HUB_WITHOUT_POWER_HIGH;
+	}
+	else if(usbid_adc < ID_T_HUB_WITH_POWER_HIGH)
+	{
+		return USB_ID_T_HUB_WITH_POWER_HIGH;
+	}
+	else
+	{
+		return USB_ID_HIGH;
+	}
+}
+#endif
+
 static int
 otg_get_prop_usbin_voltage_now(struct msm_otg *motg)
 {
@@ -3673,6 +3901,10 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 			if (motg->chg_type == USB_DCP_CHARGER)
 				motg->is_ext_chg_dcp = true;
 			motg->chg_state = USB_CHG_STATE_DETECTED;
+#ifdef CONFIG_MACH_LENOVO_TB8504
+		}else{
+			WARN(1, "SETTing to invalid charger %d, %d\n",motg->chg_type, motg->chg_state);
+#endif
 		}
 
 		dev_dbg(motg->phy.dev, "%s: charger type = %s\n", __func__,
@@ -4349,7 +4581,9 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 					"qcom,vbus-low-as-hostmode");
 	return pdata;
 }
-
+#ifdef CONFIG_MACH_LENOVO_TB8504
+struct device *dev_otg = NULL;
+#endif
 static int msm_otg_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -4363,6 +4597,9 @@ static int msm_otg_probe(struct platform_device *pdev)
 	int id_irq = 0;
 
 	dev_info(&pdev->dev, "msm_otg probe\n");
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	dev_otg = &(pdev->dev);
+#endif
 
 	motg = kzalloc(sizeof(struct msm_otg), GFP_KERNEL);
 	if (!motg) {
@@ -4736,7 +4973,16 @@ static int msm_otg_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "hsusb vreg configuration failed\n");
 		goto free_hsusb_vdd;
 	}
-
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	if(NULL != hsusb_gpiopull)
+	{
+		ret = regulator_enable(hsusb_gpiopull);
+		if (ret) {
+			dev_err(&pdev->dev, "unable to enable the hsusb gpiopull\n");
+			goto free_hsusb_vdd;
+		}
+	}
+#endif
 	/* Get pinctrl if target uses pinctrl */
 	motg->phy_pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(motg->phy_pinctrl)) {
@@ -4786,7 +5032,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "request irq failed\n");
 		goto destroy_wq;
 	}
-
+#ifndef CONFIG_MACH_LENOVO_TB8504
 	motg->phy_irq = platform_get_irq_byname(pdev, "phy_irq");
 	if (motg->phy_irq < 0) {
 		dev_dbg(&pdev->dev, "phy_irq is not present\n");
@@ -4812,6 +5058,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 			goto free_irq;
 		}
 	}
+#endif
 
 	ret = request_irq(motg->async_irq, msm_otg_irq,
 				IRQF_TRIGGER_RISING, "msm_otg", motg);
@@ -5054,7 +5301,9 @@ free_async_irq:
 free_phy_irq:
 	if (motg->phy_irq)
 		free_irq(motg->phy_irq, motg);
+#ifndef CONFIG_MACH_LENOVO_TB8504
 free_irq:
+#endif
 	free_irq(motg->irq, motg);
 destroy_wq:
 	destroy_workqueue(motg->otg_wq);
