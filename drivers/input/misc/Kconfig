@@ -866,4 +866,5 @@ config HALL
        help
         If you say yes here, you get support for hall switch control device
 
+source "drivers/input/misc/goodixfp/Kconfig"
 endif
