@@ -20,7 +20,8 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 
-#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704)
+#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704) || defined(CONFIG_MACH_LENOVO_TB8704) || defined(CONFIG_MACH_LENOVO_TB8804) || defined(CONFIG_MACH_LENOVO_TB8504)
+
 #define MAX_SPECIAL_SUPPORT_SIZE 10
 #define CAMERA_VENDOR_EEPROM_COUNT_MAX		6
 
