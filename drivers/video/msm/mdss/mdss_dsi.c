@@ -51,7 +51,14 @@ extern int mdss_dsi_panel_lcden_gpio_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int 
 static int lcd_power_en,lcd_level_shift;
 /* Add-end by Phoenix.Wu for Achillies4 Plus LCD */
 #endif
+#ifdef CONFIG_MACH_LENOVO_TB8504
+extern int elan_flag;	//lct--lyh--add for tp firmware update
+#endif
 
+static struct pm_qos_request mdss_dsi_pm_qos_request;
+#if defined(CONFIG_MACH_LENOVO_TB8704)  || defined(CONFIG_MACH_LENOVO_TB8804)
+extern int mdss_dsi_panel_lcden_gpio_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int on);
+#endif
 static void mdss_dsi_pm_qos_add_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct irq_info *irq_info;
@@ -294,6 +301,9 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 				panel_data);
 
 	ret = mdss_dsi_panel_reset(pdata, 0);
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	mdelay(10);
+#endif
 	if (ret) {
 		pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
 		ret = 0;
@@ -485,10 +495,24 @@ int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 		pr_debug("%s: no change needed\n", __func__);
 		return 0;
 	}
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	if(power_state==1){
+		gpio_direction_output(0,1);
+		mdelay(3);
+		gpio_direction_output(47,1);
+	}
+#endif
+
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 #ifdef CONFIG_MACH_LENOVO_TB8703
+	mdss_dsi_panel_lcden_gpio_ctrl(ctrl_pdata, power_state);
+#endif
+
+#if defined(CONFIG_MACH_LENOVO_TB8704)  || defined(CONFIG_MACH_LENOVO_TB8804)
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+		panel_data);
 	mdss_dsi_panel_lcden_gpio_ctrl(ctrl_pdata, power_state);
 #endif
 
@@ -535,6 +559,24 @@ int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 			__func__, power_state);
 		ret = -EINVAL;
 	}
+
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	if(power_state == 0)
+	{
+		if(elan_flag == 1)
+		{
+			gpio_direction_output(0,1);
+		mdelay(1);
+		gpio_direction_output(47,1);
+		}
+		else
+		{
+			gpio_direction_output(47,0);
+			mdelay(3);
+			gpio_direction_output(0,0);
+		}
+	}
+#endif
 
 	if (!ret)
 		pinfo->panel_power_state = power_state;
