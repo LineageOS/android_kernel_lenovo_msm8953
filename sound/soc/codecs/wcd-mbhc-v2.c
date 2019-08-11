@@ -1962,7 +1962,7 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_DETECTION_TYPE,
 						 1);
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, 0);
-#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704)
+#if defined(CONFIG_MACH_LENOVO_TB8703) || defined(CONFIG_MACH_LENOVO_TBX704) || defined(CONFIG_MACH_LENOVO_TB8704)
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADPHONE);
 #else
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_LINEOUT);
