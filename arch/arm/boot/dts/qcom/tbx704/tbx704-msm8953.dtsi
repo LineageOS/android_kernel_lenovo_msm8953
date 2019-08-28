@@ -24,9 +24,9 @@
 		};
 	};
 
-        firmware {
-                android {
-                        fstab {
+	firmware {
+		android {
+			fstab {
 				system {
 					compatible = "android,system";
 					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/system";
@@ -35,11 +35,9 @@
 					fsmgr_flags = "wait";
 					status = "ok";
 				};
-				/delete-node/ vendor;
-                        };
-                };
-        };
-
+			};
+		};
+	};
 };
 
 
