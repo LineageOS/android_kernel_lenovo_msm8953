@@ -68,7 +68,7 @@
 			pinctrl-names = "tusb_active", "tusb_suspend";
 			pinctrl-0 = <&vconn_en_active &tusb_int_active>;
 			pinctrl-1 = <&vconn_en_suspend &tusb_int_suspend>;
-			ti,usb-id = <0xec 0x8 0x0>;
+			ti,usb-id = <&pm8953_gpios 0x8 0x0>;
 			interrupt-parent = <&tlmm>;
 			interrupts = <28 0x2>;
 			ti,alert-gpio = <&tlmm 0x1c 0x2>;
