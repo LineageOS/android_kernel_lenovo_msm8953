@@ -107,12 +107,6 @@ static int iio_store_to_kfifo(struct iio_buffer *r,
 
 	mutex_lock(&kf->user_lock);
 
-	if (!&kf->kf) {
-		printk("kfifo is not allocated!\n");
-		mutex_unlock(&kf->user_lock);
-		return -ENOMEM;
-	}
-
 	ret = kfifo_in(&kf->kf, data, 1);
 	if (ret != 1) {
 		printk("kfifo_in fail ret=%d\n", ret);
