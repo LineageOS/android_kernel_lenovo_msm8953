@@ -1454,19 +1454,18 @@ correct_plug_type:
 		} else {
 			if (mbhc->impedance_detect) {
 				int impe;
-				if (mbhc->impedance_detect &&
-					mbhc->mbhc_cb->compute_impedance &&
+				if (mbhc->mbhc_cb->compute_impedance &&
 					(mbhc->mbhc_cfg->linein_th != 0))
 					mbhc->mbhc_cb->compute_impedance(mbhc,
+							&mbhc->zl, &mbhc->zr);
+				impe = wcd_mbhc_get_impedance(mbhc,
 						&mbhc->zl, &mbhc->zr);
-					impe = wcd_mbhc_get_impedance(mbhc,
-						&mbhc->zl, &mbhc->zr);
-					if (impe == 1) {
-						pr_debug("%s: swap headset found %d\n",
-							__func__, plug_type);
-						plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
-						goto report;
-					}
+				if (impe == 1) {
+					pr_debug("%s: swap headset found %d\n",
+						__func__, plug_type);
+					plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
+					goto report;
+				}
 			}
 #endif
 		}
