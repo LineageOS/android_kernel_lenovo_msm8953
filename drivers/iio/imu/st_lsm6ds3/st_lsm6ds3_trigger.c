@@ -73,7 +73,7 @@ static irqreturn_t lsm6ds3_irq_management(int irq, void *private)
 				} else
 					push = false;
 
-					lsm6ds3_read_output_data(cdata, ST_MASK_ID_EXT0, push);
+				lsm6ds3_read_output_data(cdata, ST_MASK_ID_EXT0, push);
 			}
 #endif /* CONFIG_ST_LSM6DS3_IIO_MASTER_SUPPORT */
 
