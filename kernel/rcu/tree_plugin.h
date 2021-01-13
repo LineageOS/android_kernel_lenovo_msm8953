@@ -407,10 +407,18 @@ void rcu_read_unlock_special(struct task_struct *t)
 		}
 
 #ifdef CONFIG_RCU_BOOST
-		/* Unboost if we were boosted. */
+		/*
+		 * Unboost if we were boosted.
+		 * Disable preemption to make sure completion is signalled
+		 * without having the task de-scheduled with its priority
+		 * lowered (in which case we're left with no boosted thread
+		 * and possible RCU starvation).
+		 */
 		if (drop_boost_mutex) {
+			preempt_disable();
 			rt_mutex_unlock(&rnp->boost_mtx);
 			complete(&rnp->boost_completion);
+			preempt_enable();
 		}
 #endif /* #ifdef CONFIG_RCU_BOOST */
 
@@ -441,7 +449,7 @@ static void rcu_print_detail_task_stall_rnp(struct rcu_node *rnp)
 		raw_spin_unlock_irqrestore(&rnp->lock, flags);
 		return;
 	}
-	t = list_entry(rnp->gp_tasks,
+	t = list_entry(rnp->gp_tasks->prev,
 		       struct task_struct, rcu_node_entry);
 	list_for_each_entry_continue(t, &rnp->blkd_tasks, rcu_node_entry)
 		sched_show_task(t);
@@ -506,7 +514,7 @@ static int rcu_print_task_stall(struct rcu_node *rnp)
 	if (!rcu_preempt_blocked_readers_cgp(rnp))
 		return 0;
 	rcu_print_task_stall_begin(rnp);
-	t = list_entry(rnp->gp_tasks,
+	t = list_entry(rnp->gp_tasks->prev,
 		       struct task_struct, rcu_node_entry);
 	list_for_each_entry_continue(t, &rnp->blkd_tasks, rcu_node_entry) {
 		pr_cont(" P%d", t->pid);
