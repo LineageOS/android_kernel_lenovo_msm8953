@@ -10380,10 +10380,7 @@ void hdd_full_pwr_cbk(void *callbackContext, eHalStatus status)
    hdd_context_t *pHddCtx = (hdd_context_t*)callbackContext;
 
    hddLog(VOS_TRACE_LEVEL_INFO_HIGH,"HDD full Power callback status = %d", status);
-   if(&pHddCtx->full_pwr_comp_var)
-   {
-      complete(&pHddCtx->full_pwr_comp_var);
-   }
+   complete(&pHddCtx->full_pwr_comp_var);
 }
 
 static void hdd_tx_fail_ind_callback(v_U8_t *MacAddr, v_U8_t seqNo)
@@ -11112,11 +11109,12 @@ static hdd_adapter_t* hdd_alloc_station_adapter(hdd_context_t *pHddCtx,
        */
       hdd_set_needed_headroom(pWlanDev, pWlanDev->hard_header_len);
 
-      if (pHddCtx->cfg_ini->enableIPChecksumOffload)
+      if (pHddCtx->cfg_ini->enableIPChecksumOffload) {
          pWlanDev->features |= NETIF_F_HW_CSUM;
-      else if (pHddCtx->cfg_ini->enableTCPChkSumOffld)
+      } else if (pHddCtx->cfg_ini->enableTCPChkSumOffld) {
          pWlanDev->features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
-      pWlanDev->features |= NETIF_F_RXCSUM;
+         pWlanDev->features |= NETIF_F_RXCSUM;
+      }
       hdd_set_station_ops( pAdapter->dev );
 
       hdd_dev_setup_destructor(pWlanDev);
@@ -16455,7 +16453,7 @@ static void hdd_state_info_dump(char **buf_ptr, uint16_t *size)
 			len += scnprintf(buf + len, *size - len,
 				"\n device name: %s", adapter->dev->name);
 		len += scnprintf(buf + len, *size - len,
-				"\n device_mode: %d", adapter->device_mode);
+			"\n device_mode: %d", adapter->device_mode);
 		switch (adapter->device_mode) {
 		case WLAN_HDD_INFRA_STATION:
 		case WLAN_HDD_P2P_CLIENT:

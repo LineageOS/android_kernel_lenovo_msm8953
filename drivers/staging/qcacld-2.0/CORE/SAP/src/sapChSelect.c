@@ -1981,6 +1981,7 @@ void sapComputeSpectWeight( tSapChSelSpectInfo* pSpectInfoParams,
 
     tCsrScanResultInfo *pScanResult;
     tSapSpectChInfo *pSpectCh   = pSpectInfoParams->pSpectCh;
+    tSapSpectChInfo *pExtSpectCh = NULL;
     v_U32_t operatingBand = eCSR_DOT11_MODE_11g;
     v_U16_t channelWidth;
     v_U16_t secondaryChannelOffset;
@@ -1992,7 +1993,6 @@ void sapComputeSpectWeight( tSapChSelSpectInfo* pSpectInfoParams,
     tSapSpectChInfo *pSpectChStartAddr = pSpectInfoParams->pSpectCh;
     tSapSpectChInfo *pSpectChEndAddr =
                     pSpectInfoParams->pSpectCh + pSpectInfoParams->numSpectChans;
-    tSapSpectChInfo *pExtSpectCh = NULL;
 
     pBeaconStruct = vos_mem_malloc(sizeof(tSirProbeRespBeacon));
     if ( NULL == pBeaconStruct )
